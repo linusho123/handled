@@ -32,11 +32,11 @@ CATALOG: dict[str, str] = {
 def _money(value: Any) -> str:
     try:
         amount = Decimal(str(value).strip().lstrip("$"))
+        if not amount.is_finite() or amount < 0:
+            raise InvalidOperation
+        return f"{amount.quantize(Decimal('0.01'))}"
     except InvalidOperation as err:
         raise SiteError(f"not a price: {value!r}") from err
-    if amount < 0:
-        raise SiteError(f"not a price: {value!r}")
-    return f"{amount.quantize(Decimal('0.01'))}"
 
 
 class StoreSite(Site):
@@ -153,7 +153,12 @@ class StoreSite(Site):
                 return page(f"{self.title} - Checkout", "<p role='alert'>Your cart is empty.</p>", 400)
             if not (all(v.strip() for v in ship.values()) and last4(card_number) and card_expiry.strip() and card_cvc.strip()):
                 return page(f"{self.title} - Checkout", "<p role='alert'>Every field is required.</p>", 400)
-            items = [{"slug": s, "name": CATALOG[s], "price": self.prices[s]} for s in self.cart if s in self.prices]
+            # The store sells only what it lists now: an item it no longer lists (its price
+            # gone, or `nolisting` set after Add to cart) refuses the whole order.
+            listed = {s: self._listed(s) for s in self.cart}
+            if any(price is None for price in listed.values()):
+                return page(f"{self.title} - Checkout", "<p role='alert'>An item in your cart is no longer available.</p>", 400)
+            items = [{"slug": s, "name": CATALOG[s], "price": listed[s]} for s in self.cart]
             total = _money(sum(Decimal(i["price"]) for i in items))
             self.record({"kind": "order", "items": items, "total": total, "ship_to": {k: v.strip() for k, v in ship.items()}, "card_last4": last4(card_number)})
             self.cart = []

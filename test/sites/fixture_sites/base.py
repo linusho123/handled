@@ -51,7 +51,7 @@ class Site:
         self._ledger = []
 
     def set_fault(self, fault: str | None) -> None:
-        if fault is not None and fault not in self.faults:
+        if fault is not None and (not isinstance(fault, str) or fault not in self.faults):
             known = ", ".join(sorted(self.faults)) or "none"
             raise SiteError(f"{self.name} has no fault {fault!r}; its faults are {known}")
         self.fault = fault

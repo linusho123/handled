@@ -8,8 +8,6 @@ dependencies = [
   "uvicorn",
   "playwright",
   "google-genai",
-  "browser-use",
-  "pydantic-settings",
   "pillow",
   "python-multipart",
 ]

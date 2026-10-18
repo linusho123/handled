@@ -7,6 +7,7 @@ Every /test/* endpoint reports what the app holds; none pre-seeds anything.
 from __future__ import annotations
 
 import io
+import math
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -106,17 +107,25 @@ def _test_router(clock: VirtualClock, desk: Desk, hands: Hands, texts: FakeTexts
     async def reset(request: Request) -> dict[str, str]:
         data = await _json(request)
         start = data.get("start")
-        if start is None:
+        at = None
+        if start is not None:
+            try:
+                at = datetime.fromisoformat(str(start))
+            except ValueError:
+                at = None
+            # The clock is naive local wall time (app/desk/clock.py): a start with an offset is refused.
+            if at is None or at.tzinfo is not None:
+                raise HTTPException(400, f"start is a local ISO time such as 2026-10-17T07:50, not {start!r}")
+        # The hands close first: a form post the old browser context already sent can land
+        # while its close is awaited, and the ledgers, texts and desk are emptied after it.
+        await hands.reset()
+        sites.reset()
+        texts.reset()
+        desk.reset()
+        if at is None:
             clock.reset()
         else:
-            try:
-                clock.reset(datetime.fromisoformat(str(start)))
-            except ValueError as err:
-                raise HTTPException(400, f"start is a local ISO time such as 2026-10-17T07:50, not {start!r}") from err
-        desk.reset()
-        texts.reset()
-        sites.reset()
-        await hands.reset()
+            clock.reset(at)
         return {"now": clock.now().isoformat()}
 
     @t.post("/frame")
@@ -127,11 +136,11 @@ def _test_router(clock: VirtualClock, desk: Desk, hands: Hands, texts: FakeTexts
     @t.post("/advance")
     async def advance(request: Request) -> dict[str, str]:
         seconds = (await _json(request)).get("seconds")
-        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
-            raise HTTPException(400, "seconds is a number")
+        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not math.isfinite(seconds):
+            raise HTTPException(400, "seconds is a finite number")
         try:
             clock.advance(seconds)
-        except ValueError as err:
+        except (ValueError, OverflowError) as err:
             raise HTTPException(400, str(err)) from err
         return {"now": clock.now().isoformat()}
 

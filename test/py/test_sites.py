@@ -171,10 +171,67 @@ def test_reset_empties_ledgers_faults_prices_and_carts(sites, client):
     client.post("/sites/walmart/cart", data={"slug": "cholula-original-32oz"})
     client.post("/sites/walmart/order", data={**SHIP, **CARD})
     client.post("/sites/la-citations/pay", data={"citation": "4512087733", **CARD})
+    # head-2: a cart that is full when the reset comes, in two stores, so the reset
+    # (and nothing else) is what empties it.
+    for store in ("walmart", "amazon"):
+        sites[store].set_prices({"cholula-original-32oz": "8.98"})
+        assert client.post(f"/sites/{store}/cart", data={"slug": "cholula-original-32oz"}).status_code == 303
+        assert sites[store].cart == ["cholula-original-32oz"]
+        assert "cart-item" in client.get(f"/sites/{store}/cart").text
     sites["la-citations"].set_fault("down")
     sites["walmart"].set_fault("nolisting")
-    client.post("/sites/walmart/cart", data={"slug": "cholula-original-32oz"})
     sites.reset()
     assert ledgers(sites) == EMPTY
     assert all(site.fault is None for site in sites.by_name.values())
-    assert sites["walmart"].prices == {} and sites["walmart"].cart == []
+    for store in ("target", "walmart", "amazon"):
+        assert sites[store].prices == {} and sites[store].cart == []
+        assert "cart-item" not in client.get(f"/sites/{store}/cart").text
+        assert "cart-item" not in client.get(f"/sites/{store}/checkout").text
+
+
+def test_head_2_a_cart_kept_through_a_reset_places_no_order(sites, client):
+    # The next scenario sets the same price; a cart the reset kept would let it order
+    # an item the scenario never put in the cart.
+    sites["target"].set_prices({"cholula-original-32oz": "9.49"})
+    assert client.post("/sites/target/cart", data={"slug": "cholula-original-32oz"}).status_code == 303
+    sites.reset()
+    sites["target"].set_prices({"cholula-original-32oz": "9.49"})
+    assert client.post("/sites/target/order", data={**SHIP, **CARD}).status_code == 400
+    assert ledgers(sites) == EMPTY
+
+
+@pytest.mark.parametrize("change", ["only-another-product-priced", "no-prices", "nolisting"])
+def test_contract_1_an_order_for_an_item_the_store_no_longer_lists_records_nothing(sites, client, change):
+    sites["walmart"].set_prices({"cholula-original-32oz": "8.98"})
+    assert client.post("/sites/walmart/cart", data={"slug": "cholula-original-32oz"}).status_code == 303
+    if change == "only-another-product-priced":
+        sites["walmart"].set_prices({"cholula-original-12oz": "4.99"})
+    elif change == "no-prices":
+        sites["walmart"].set_prices({})
+    else:
+        sites["walmart"].set_fault("nolisting")
+    assert client.post("/sites/walmart/order", data={**SHIP, **CARD}).status_code == 400
+    assert ledgers(sites) == EMPTY
+
+
+def test_contract_1_an_order_with_any_item_no_longer_listed_records_nothing(sites, client):
+    sites["walmart"].set_prices({"cholula-original-32oz": "8.98", "cholula-original-12oz": "4.99"})
+    assert client.post("/sites/walmart/cart", data={"slug": "cholula-original-32oz"}).status_code == 303
+    assert client.post("/sites/walmart/cart", data={"slug": "cholula-original-12oz"}).status_code == 303
+    sites["walmart"].set_prices({"cholula-original-12oz": "4.99"})
+    assert client.post("/sites/walmart/order", data={**SHIP, **CARD}).status_code == 400
+    assert ledgers(sites) == EMPTY
+
+
+@pytest.mark.parametrize("price", ["NaN", "sNaN", "Infinity", "-Infinity", "1e40"])
+def test_risk_1_a_price_that_is_not_a_finite_amount_is_refused(sites, price):
+    with pytest.raises(SiteError):
+        sites["walmart"].set_prices({"cholula-original-32oz": price})
+    assert sites["walmart"].prices == {}
+
+
+@pytest.mark.parametrize("fault", [["x"], {"a": 1}, 3, True])
+def test_risk_1_a_fault_that_is_not_a_name_is_refused(sites, fault):
+    with pytest.raises(SiteError):
+        sites["ladwp"].set_fault(fault)
+    assert sites["ladwp"].fault is None
