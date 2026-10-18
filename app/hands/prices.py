@@ -20,6 +20,9 @@ SERPAPI = "https://serpapi.com/search.json"
 # Resale marketplaces and used-goods sellers rank after retailers: a demo's cheapest listing
 # should be a new item from a store, not a reseller's used one (seen 2026-10-18: eBay, Mercari).
 MARKETPLACES = frozenset({"ebay", "mercari", "mercari.com", "poshmark", "offerup", "aliexpress", "temu", "wish", "etsy", "facebook marketplace", "craigslist", "back market", "swappa", "reebelo", "gazelle", "alibaba", "dhgate", "shein"})
+# Retailers a shopper knows rank first; a seller named like a bare domain ranks after them.
+RETAILERS = frozenset({"amazon", "amazon.com", "walmart", "target", "best buy", "bestbuy", "costco", "sam's club", "home depot", "the home depot", "lowe's", "staples", "office depot", "newegg", "micro center", "b&h photo", "b&h photo video", "b&h", "adorama", "apple", "jbl", "harman", "samsung", "sony", "bose", "verizon", "at&t", "t-mobile", "kohl's", "macy's", "nordstrom", "gamestop", "rei", "dick's sporting goods", "cvs", "walgreens", "kroger", "ralphs", "vons", "albertsons", "safeway", "instacart", "whole foods", "trader joe's", "cholula", "dell", "hp", "lenovo", "microsoft", "google store", "nike", "adidas", "ikea", "wayfair", "overstock", "chewy", "petco", "petsmart", "ulta", "sephora", "guitar center", "sweetwater", "crutchfield", "abt", "qvc", "hsn", "zappos", "bed bath & beyond", "michaels", "joann", "hobby lobby", "ace hardware", "harbor freight", "autozone", "o'reilly", "advance auto parts", "7-eleven", "dollar general", "five below", "big lots", "bj's", "meijer", "h-e-b", "publix", "wegmans", "lululemon", "patagonia", "the north face", "columbia", "under armour", "gap", "old navy", "uniqlo", "h&m", "zara", "shop apple", "apple.com", "walmart.com", "target.com", "bestbuy.com", "jbl.com", "costco.com"})
+_DOMAINISH = re.compile(r"\.(com|net|org|co|io|ir|shop|store|xyz|info|biz|ru|cn|uk|de|fr|ca|us)\b", re.IGNORECASE)
 _USED = re.compile(r"\b(used|pre-?owned|refurb(ished)?|open box|renewed|second ?hand)\b", re.IGNORECASE)
 
 
@@ -46,8 +49,9 @@ class GoogleShoppingPrices:
         request = urllib.request.Request(f"{SERPAPI}?{urllib.parse.urlencode(params)}", headers={"User-Agent": "handled/0.1"})
         with urllib.request.urlopen(request, timeout=20) as response:
             data = json.loads(response.read())
-        retail: dict[str, Listing] = {}
-        other: dict[str, Listing] = {}
+        retail: dict[str, Listing] = {}  # known retailers, new items
+        shops: dict[str, Listing] = {}  # other named shops, new items
+        other: dict[str, Listing] = {}  # marketplaces, used items, bare-domain sellers
         for item in data.get("shopping_results") or []:
             if not isinstance(item, dict):
                 continue
@@ -64,11 +68,21 @@ class GoogleShoppingPrices:
             tags = " ".join(str(x) for x in (item.get("extensions") or [])) + " " + title + " " + str(item.get("second_hand_condition") or "")
             link = str(item.get("product_link") or item.get("link") or "")
             listing = Listing(store=store, price=price, shown=f"${price.quantize(Decimal('0.01'))}", link=link, title=title)
-            bucket = other if (store.lower() in MARKETPLACES or _USED.search(tags)) else retail
+            key = store.lower()
+            if key in MARKETPLACES or _USED.search(tags) or (key not in RETAILERS and _DOMAINISH.search(key)):
+                bucket = other
+            elif key in RETAILERS:
+                bucket = retail
+            else:
+                bucket = shops
             if store not in bucket or listing.price < bucket[store].price:
                 bucket[store] = listing
-        # New items from retailers first; marketplaces and used listings only fill the gaps.
-        ranked = sorted(retail.values(), key=lambda l: l.price)[:stores]
-        if len(ranked) < stores:
-            ranked += sorted((l for l in other.values() if l.store not in {r.store for r in ranked}), key=lambda l: l.price)[: stores - len(ranked)]
+        # Known retailers' new items first, then other named shops, then marketplaces and used
+        # listings, each tier cheapest first, until three stores are named.
+        ranked: list[Listing] = []
+        for tier in (retail, shops, other):
+            if len(ranked) >= stores:
+                break
+            taken = {r.store for r in ranked}
+            ranked += sorted((l for l in tier.values() if l.store not in taken), key=lambda l: l.price)[: stores - len(ranked)]
         return ranked

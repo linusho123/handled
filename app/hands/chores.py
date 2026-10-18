@@ -496,9 +496,9 @@ class ProductChore(BaseChore):
             first = first or tab
             tabs.append(tab)
             try:
-                await tab.goto(listing.link, wait_until="domcontentloaded")
+                await tab.goto(listing.link, wait_until="commit", timeout=4_000)
             except PlaywrightError:
-                pass  # the listing's page may refuse an automated browser; the tab stays, the price stands
+                pass  # the listing's page may refuse or stall; the tab stays, the price stands
         card.not_found = []
         card.ranking = [{"store": l.store, "price": l.shown, "link": l.link} for l in self.listings]
         self.page = tabs[0] if tabs else first
