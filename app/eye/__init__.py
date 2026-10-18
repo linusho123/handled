@@ -20,6 +20,16 @@ from app.eye.cassette import Cassette, CassetteMissing
 # The Gemini model the eye calls, confirmed against the models list when the
 # cassettes were recorded (scripts/record-cassettes.py, 2026-10-18).
 GEMINI_MODEL = "gemini-3.8-flash"
+# Live mode only: when the model answers 503 UNAVAILABLE or 429 (high demand), the next model in this
+# list is tried at once, without waiting (the P1 guard forbids real-time waits in app/). Confirmed
+# against the key's models list at the demo integration, 2026-10-18. Cassettes replay regardless.
+GEMINI_FALLBACKS = ("gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-3.5-flash")
+# Live mode's first choice. Timed at the demo integration (2026-10-18, the fixture ticket, JSON answer):
+# gemini-3.8-flash 153 s, 3.7-flash 17 s, 3.5-flash 7 s, 3.5-flash-lite 1.1 s, 3.1-flash-lite 1.4 s.
+# The five-second rule (D4, D5) leaves only the lite models. Cassettes were recorded with GEMINI_MODEL
+# and keep replaying under it; recording (HANDLED_RECORD=1) still uses GEMINI_MODEL so the request
+# hash names the model that answered. HANDLED_LIVE_MODEL overrides the live choice.
+LIVE_MODEL = "gemini-3.5-flash-lite"
 
 Kind = Literal["ticket", "bill", "product", "unknown"]
 
@@ -181,9 +191,22 @@ class GeminiEye:
     def _generate(self, parts: list[Any], json_answer: bool) -> str:
         from google.genai import types
 
+        from google.genai import errors
+
         config = types.GenerateContentConfig(response_mime_type="application/json") if json_answer else None
-        response = self._live_client().models.generate_content(model=self.model, contents=parts, config=config)
-        return response.text or ""
+        last: Exception | None = None
+        recording = os.environ.get("HANDLED_RECORD") == "1"
+        first = self.model if recording else os.environ.get("HANDLED_LIVE_MODEL") or LIVE_MODEL
+        for model in (first, *(m for m in GEMINI_FALLBACKS if m != first)):
+            try:
+                response = self._live_client().models.generate_content(model=model, contents=parts, config=config)
+                return response.text or ""
+            except errors.APIError as err:  # 503 high demand, 429 quota: the next model, at once
+                if getattr(err, "code", None) not in (429, 503):
+                    raise
+                last = err
+        assert last is not None
+        raise last
 
     def identify_request(self, frame: Frame) -> dict[str, Any]:
         return {
@@ -245,4 +268,4 @@ class GeminiEye:
         return letter
 
 
-__all__ = ["Cassette", "CassetteMissing", "Frame", "GEMINI_MODEL", "GeminiEye", "Identification", "Kind", "parse_identification", "size_text"]
+__all__ = ["Cassette", "CassetteMissing", "Frame", "GEMINI_FALLBACKS", "GEMINI_MODEL", "LIVE_MODEL", "GeminiEye", "Identification", "Kind", "parse_identification", "size_text"]

@@ -10,12 +10,15 @@ The fence for Handled, scoped 2026-10-17 late evening (docket dates are UTC, 202
 
 ## Deferred — each with its reopening condition
 
+- **The real Los Angeles pages after the CAPTCHA.** No real citation number was in hand at the event, so the pages past the lookup are unconfirmed; the demo shows the real lookup page up to its CAPTCHA and runs Pay and Contest against the fixture city site styled after the real one, declared as such. Reopens when a real citation is in hand. (D37, 2026-10-18)
+- **Live store search.** Target and Walmart refuse automated browsers; the product demo runs against the three fixture stores styled after them, declared as fixtures. Reopens if a store offers a product API or stops blocking. (D38, 2026-10-18)
 - **Tickets from cities other than Los Angeles.** Best effort: the agent searches for that city's pay-or-contest page and proceeds if it finds one, else stops as a failed step. The demo uses a Los Angeles ticket. Reopens if a judge brings a ticket from another city. (D27, 2026-10-18)
 
 Beyond this, what may go unbuilt is governed by the cut order in `DESIGN.md` (D29, ratified D34): the bill chore first, then the Buy step in favour of the ranked card alone, then the day-before text; identification, the ticket chore, the Confirm gate and the report are never cut. Anything unbuilt at the deadline is to be recorded here, under this heading, by the build.
 
 ## Named assumptions
 
+- **The user types the CAPTCHA.** A real page that demands a CAPTCHA pauses the chore: the agent fills what it can, the card says to type the CAPTCHA in the visible browser, and the chore waits without a time-out for the user to do so and press the page's button. The agent never solves or bypasses one. Reopens if a city drops its CAPTCHA or offers an API. (D36, 2026-10-18)
 - **A test card at the demo.** The card on file is a test card, so a real site declines it or a sandbox accepts it and no real money moves; the demo script stops at Confirm and does not tap it. Reopens if a judge wants to see a real payment go through. (D25, 2026-10-18)
 - **No logins.** The user has no saved logins and Handled holds no passwords; a page that demands a login is a failed step. Reopens if the visionary wants saved logins for a known biller or store. (D26, 2026-10-18)
 - **Fields are shown before they are used.** A misread digit in a citation number or a wrong amount on a bill reaches a form only if the user lets it: the card shows every field it read before the browser acts, the user corrects a field by saying or typing it, and the Confirm gate is the last guard. Reopens if a judge's ticket is misread at the demo. (D28, 2026-10-18; ratified D33)

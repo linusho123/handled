@@ -41,6 +41,8 @@ class CityPortal:
     contest: FinalSubmit
     receipt: str
     login_wall: str = "input[type=password]"
+    captcha_field: str = ""  # a CAPTCHA box before the lookup goes on; "" when the page has none (D36)
+    lookup_choice: str = ""  # a radio to pick before the lookup (Los Angeles: citation number, not payment plan)
 
 
 @dataclass(frozen=True)
@@ -58,28 +60,34 @@ class Store:
         return self.search_url.format(q=quote_plus(query))
 
 
-# The real sites (HANDLED_SITES=real). Los Angeles pays and contests parking citations
-# through its ETIMS vendor pages. UNCONFIRMED: every selector below is a placeholder
-# until PD reads the live page and writes the real one; a selector that does not
+# The real sites (HANDLED_SITES=real). Los Angeles pays and contests parking citations through
+# its ETIMS vendor pages, read on 2026-10-18 at the demo integration: the pay-by-web lookup
+# (form inputForm: a paymentType radio, documentNum up to 16 characters, a CAPTCHA, Submit) and
+# the online initial-review form (complaintform.jsp?complainttype=6: ticket up to 11 characters,
+# a CAPTCHA). Neither has a plate field. The pages after the CAPTCHA are unconfirmed (D37): no
+# real citation was in hand, so those selectors stay placeholders, and a selector that does not
 # match is a failed step on the card (the browser stays), never a guess typed elsewhere.
 REAL = {
-    "la_lookup_url": "https://prodpci.etimspayments.com/pbw/include/los_angeles/input.jsp",
+    "la_lookup_url": "https://wmq.etimspayments.com/pbw/include/la/input.jsp",
+    "la_contest_url": "https://wmq.etimspayments.com/pbw/include/la/complaintform.jsp?complainttype=6",
     "la": {
-        "citation_field": "#citation",  # PD: the citation-number box
-        "plate_field": "#plate",  # PD: the plate box
-        "lookup_button": "#lookup",  # PD: looks the citation up; pays and files nothing
-        "found": "#citation-number",  # PD: present only on the citation's own page
-        "pay_link": "#pay",  # PD
-        "contest_link": "#contest",  # PD
-        "card_name": "#card_name",  # PD
-        "card_number": "#card_number",  # PD
-        "card_expiry": "#card_expiry",  # PD
-        "card_cvc": "#card_cvc",  # PD
-        "amount": "#amount",  # PD
-        "pay": "#submit",  # PD: the final Pay button (FinalSubmit: pressed only after Confirm)
-        "letter": "#letter",  # PD
-        "contest": "#submit",  # PD: the final contest button (FinalSubmit)
-        "receipt": "#receipt",  # PD
+        "citation_field": "input[name=documentNum]",  # confirmed 2026-10-18
+        "plate_field": "",  # the real page has no plate box (confirmed)
+        "lookup_choice": "input[name=paymentType][value=T]",  # citation number, not payment plan (confirmed)
+        "captcha_field": "#captchaSText",  # confirmed: the user types it (D36)
+        "lookup_button": "input[name=submit]",  # confirmed; pays and files nothing
+        "found": "text=/amount due/i",  # UNCONFIRMED (D37): the citation's own page
+        "pay_link": "text=/^pay/i",  # UNCONFIRMED (D37)
+        "contest_link": "text=/initial review/i",  # UNCONFIRMED (D37)
+        "card_name": "input[name=cardholderName]",  # UNCONFIRMED (D37)
+        "card_number": "input[name=cardNumber]",  # UNCONFIRMED (D37)
+        "card_expiry": "input[name=expiration]",  # UNCONFIRMED (D37)
+        "card_cvc": "input[name=cvv]",  # UNCONFIRMED (D37)
+        "amount": "input[name=amount]",  # UNCONFIRMED (D37)
+        "pay": "input[type=submit]",  # UNCONFIRMED (D37): the final Pay button (FinalSubmit: pressed only after Confirm)
+        "letter": "textarea",  # UNCONFIRMED (D37)
+        "contest": "input[type=submit]",  # UNCONFIRMED (D37): the final contest button (FinalSubmit)
+        "receipt": "text=/confirmation/i",  # UNCONFIRMED (D37)
     },
     "ladwp_pay_url": "https://www.ladwp.com/account/payments",
     "stores": [

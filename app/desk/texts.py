@@ -107,7 +107,8 @@ class PhotonTexts(Texts):
         self.sender_id: str | None = None
 
     def _headers(self, key: str | None = None) -> dict[str, str]:
-        headers = {"Authorization": f"Bearer {self._api_key}", "Accept": "application/json"}
+        # Photon's edge answers 403 to Python's default urllib User-Agent (seen 2026-10-18); name ourselves.
+        headers = {"Authorization": f"Bearer {self._api_key}", "Accept": "application/json", "User-Agent": "handled/0.1"}
         if key is not None:
             headers["Content-Type"] = "application/json"
             headers["idempotency-key"] = key

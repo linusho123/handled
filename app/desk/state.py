@@ -114,6 +114,23 @@ class Desk:
         self.reminders: list[Reminder] = []  # the day-before texts waiting on the clock (D20)
         self._reminded = False  # one day-before text per chore
 
+    def chore_has_ended(self) -> bool:
+        """A chore that stopped at a failed step, or completed after Confirm, holds the desk no longer.
+        A chore paused at Confirm, or still working, does."""
+        if self.chore is None:
+            return True
+        if getattr(self.chore, "stopped", False):
+            return True
+        return self.card.done is not None and self._paused is None
+
+    def start_over(self) -> None:
+        """A fresh card for the next thing; the day-before texts already scheduled stay on the clock."""
+        reminders, reminded = self.reminders, self._reminded
+        self.reset()
+        self.reminders = reminders
+        self._reminded = False
+        del reminded
+
     def state(self) -> dict[str, Any]:
         return self.card.document()
 
@@ -123,7 +140,9 @@ class Desk:
         self.frame = image
         self.frame_at = at.isoformat()
         if self.identification is not None:
-            return  # a thing is named; its chore holds the desk
+            if not self.chore_has_ended():
+                return  # a thing is named; its chore holds the desk (a paused chore waits forever, D6)
+            self.start_over()  # live mode: the user holds up the next thing after a chore ended
         if self._attempt is None:
             self._attempt = _Attempt(started=at, deadline=at + timedelta(seconds=IDENTIFY_SECONDS))
         if self._attempt.pending is None:

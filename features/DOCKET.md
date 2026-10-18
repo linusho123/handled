@@ -285,3 +285,25 @@ D35 2026-10-18 [V] signs D34
   -> boundary
   serves: N1
   touches: none
+
+# Demo integration, 2026-10-18 (~04:30 PDT; dates stay UTC-style). The real Los Angeles citation pages were read: the pay-by-web lookup and the online initial-review form each take a citation number and a CAPTCHA before anything else; no plate field. The visionary chose from three options put to them: the CAPTCHA pause, no real citation for the rehearsal, fixture stores for the product demo.
+
+D36 2026-10-18 [I>V]
+  pre:   live mode is driving a real page that asks for a CAPTCHA before it will go on, as the Los Angeles lookup and initial-review pages do [I>V]
+  trig:  the agent reaches that page [I>V]
+  resp:  the agent fills every field it can, the user sees `Type the CAPTCHA in the browser` on the card, and the chore waits for the user to type it in the visible browser and press the page's own button; the agent never solves or bypasses a CAPTCHA, and the wait has no time-out; reopens if a city drops its CAPTCHA or offers an API [I>V]
+  -> fence-assumption captcha-typed-by-the-user
+  serves: N1 N2
+  touches: D9 D26
+
+D37 2026-10-18 [I>V]
+  resp: the pages after the Los Angeles CAPTCHA are unconfirmed, because no real citation number was available at the event to walk them; the demo's Pay and Contest steps therefore run against the fixture city site styled after the real one, declared as such, while the real lookup page is shown up to its CAPTCHA; reopens when a real citation is in hand [I>V]
+  -> fence-deferred real-pages-after-the-captcha
+  serves: N1
+  touches: D9 D27 D36
+
+D38 2026-10-18 [V]
+  resp: the product demo runs against the three fixture stores styled after Target, Walmart and Amazon, declared as fixtures, because Target and Walmart refuse automated browsers; the live store search is deferred [V]
+  -> fence-deferred live-stores
+  serves: N1
+  touches: D16 D18

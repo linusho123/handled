@@ -16,6 +16,7 @@ The orienting document for the agent that builds Handled, with the human as seco
 - Every field the eye reads is shown on the card before the hands type it anywhere; the user can correct a field by voice or keyboard. [ruled: D28]
 - A failed step is a stopped chore: the card names the step and the browser stays on the last page it reached. Nothing is retried silently and nothing is submitted. [ruled: D10, D15, D17]
 - A login wall is a failed step. Handled holds no passwords. [ruled: D26]
+- A CAPTCHA is a pause, not a failure: the agent fills what it can, the card says to type it in the visible browser, and the chore waits for the user; the agent never solves one. [ruled: D36]
 - The report is a card plus one text at the end of every chore and a second text the day before any deadline; a product has no deadline. The browser need not stay open. [ruled: D19, D20, D21, D3]
 
 ## Numbers the build meets
@@ -27,7 +28,7 @@ The orienting document for the agent that builds Handled, with the human as seco
 
 ## The chores
 
-- Ticket: the issuing city's pay-or-contest page, LADOT for Los Angeles, other cities best effort; citation and plate filled; Pay fills the card on file and pauses; Contest writes a one-paragraph letter from the spoken reason, pastes it, shows it, and pauses. [ruled: D9, D11, D12, D27]
+- Ticket: the issuing city's pay-or-contest page, LADOT for Los Angeles (the pay-by-web lookup and the online initial-review form, each behind a CAPTCHA and taking the citation number only), other cities best effort; citation and plate filled; Pay fills the card on file and pauses; Contest writes a one-paragraph letter from the spoken reason, pastes it, shows it, and pauses. [ruled: D9, D11, D12, D27]
 - Bill: the biller's payment page found, account and amount filled, paused; with no page or a login wall, the phone number printed on the bill and "call to pay". [ruled: D14, D15]
 - Product: a variant question first when the size is unsettled; three stores in tabs; a ranked card; Buy adds to cart, reaches checkout with the shipping address and the Visa on file, and pauses at place-order. [ruled: D8, D16, D17, D18]
 
@@ -53,3 +54,4 @@ When the build runs short: the bill chore first, then the Buy step in favour of 
 - 2026-10-18 — Photon's first-message constraint recorded under the texts `chosen` line after reading its beta docs; the build plan's PD section carries the setup steps. No `ruled` line changed.
 - 2026-10-18 — Browser Use deferred to the bill chore phase at the operator's word (not until necessary); the ticket and product chores run on scripted Playwright flows alone. No `ruled` line changed.
 - 2026-10-18 — live mode (real clock, live Gemini, headed Chromium, real sites, real texts) assigned to P2 in the build plan so the demo integration phase has something to run; a build-plan scheduling change, no `ruled` or `chosen` line changed.
+- 2026-10-18 — demo integration: D36 (CAPTCHA typed by the user), D37 (real pages after the CAPTCHA deferred; fixture city styled after the real one for Pay and Contest), D38 (live stores deferred; fixture stores for the product demo). The real Los Angeles URLs replace the guessed one in the site map.

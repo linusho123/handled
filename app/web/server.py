@@ -108,9 +108,14 @@ def create_app(
         @api.middleware("http")
         async def tick(request: Request, call_next: Any) -> Any:
             """Live: each request reads the real clock first, so the five seconds and the
-            day-before texts move with it (in test mode only POST /test/advance moves it)."""
-            async with desk.lock:
-                await desk.tick(clock.now())
+            day-before texts move with it (in test mode only POST /test/advance moves it).
+            Not for the fixture sites' own pages, and never while a chore holds the desk:
+            the chore's browser fetches those pages from this same server while /frame holds
+            the lock, and waiting here would deadlock until the navigation timed out (seen at
+            the demo integration, 2026-10-18). The next poll of /desk ticks instead."""
+            if not request.url.path.startswith("/sites/") and not desk.lock.locked():
+                async with desk.lock:
+                    await desk.tick(clock.now())
             return await call_next(request)
 
     @api.get("/", response_class=HTMLResponse)
