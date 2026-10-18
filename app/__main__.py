@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     texts.prepare()  # names the senders configured; Photon looks for the user's first message
     api = create_app(
         clock=RealClock(),
-        desk=Desk(),
+        desk=Desk(live=True),
         hands=Hands(headless=False, loopback_only=fixtures),
         texts=texts,
         sites=sites,

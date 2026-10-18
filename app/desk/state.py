@@ -96,6 +96,7 @@ class Desk:
         chores: Callable[["Desk", Identification], Chore] | None = None,
         clock: Clock | None = None,
         texts: Texts | None = None,
+        live: bool = False,
     ) -> None:
         self.eye = eye
         self.chores = chores
@@ -104,6 +105,9 @@ class Desk:
         self.clock: Clock = clock if clock is not None else VirtualClock()
         self.texts: Texts = texts if texts is not None else FakeTexts()
         self.lock = asyncio.Lock()
+        # Live mode: an ended chore offers Next; frames are ignored until it is tapped (one chore, one
+        # text per thing held up, never a loop while the same thing stays in front of the camera).
+        self.live = live
         self.reset()
 
     def reset(self) -> None:
@@ -146,9 +150,7 @@ class Desk:
         self.frame = image
         self.frame_at = at.isoformat()
         if self.identification is not None:
-            if not self.chore_has_ended():
-                return  # a thing is named; its chore holds the desk (a paused chore waits forever, D6)
-            self.start_over()  # live mode: the user holds up the next thing after a chore ended
+            return  # a thing is named; its chore holds the desk until Next (live) or a reset (tests)
         if self._attempt is None:
             self._attempt = _Attempt(started=at, deadline=at + timedelta(seconds=IDENTIFY_SECONDS))
         if self._attempt.pending is None:
@@ -201,6 +203,11 @@ class Desk:
     # --- the user's words and taps ------------------------------------------------------
 
     async def tap(self, control: str) -> bool:
+        if control == "Next":
+            if not (self.live and self.chore_has_ended()):
+                return False
+            self.start_over()
+            return True
         if control == "Confirm" or control not in self.card.controls or self.chore is None:
             return False
         return await self.chore.tap(control)
@@ -259,6 +266,8 @@ class Desk:
         chore_id = self.chore_id
         now = self.clock.now()
         self.texts.send(report_text(done, card.deadline, card.deadline_note), now.isoformat(), event_key(chore, chore_id, f"end:{done}"))
+        if self.live and self.chore_has_ended():
+            card.controls = ["Next"]
         name = chore_name(kind, fields)
         if self._reminded or kind not in REMINDED_KINDS or card.deadline is None or name is None:
             return  # D21: a product has no deadline and gets no second text
