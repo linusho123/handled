@@ -1,8 +1,11 @@
 """head-1: P0 installs no Browser Use. The operator's ruling (2026-10-18, commit 7c85d0e):
 Browser Use is not installed before P4, and P4 adds `browser-use` to the Python
-dependencies (BUILD-PLAN.md, P4). `npm run setup:py` installs every dependency in
-pyproject.toml, so until P4 neither Browser Use nor the settings package it pulled in
-may be listed there. P4 removes this test with the ruling it carries out."""
+dependencies (BUILD-PLAN.md, P4) only if its cassette can be recorded within thirty
+minutes. P4 could not record it (the Gemini key's daily free-tier quota was spent), so
+per the ruling Browser Use is left out, the unknown-biller path is "call to pay", and
+neither Browser Use nor the settings package it pulls in may be listed in pyproject.toml.
+`npm run setup:py` installs every dependency listed there. Whoever adds the finder later
+removes this test with the ruling that admits it."""
 
 import tomllib
 from pathlib import Path

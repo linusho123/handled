@@ -45,8 +45,28 @@ class CityPortal:
 
 @dataclass(frozen=True)
 class Biller:
+    """A biller's payment page (D14, D15). The selectors default to the fixture biller's
+    (test/sites/fixture_sites/ladwp.py). With no payment page at `pay_url` the chore tries
+    the biller's own site search for one (`search_url`, with {q}); a result whose words say
+    pay is followed. Nothing here holds a phone number: the number to call is the one the
+    bill prints (the identification's fields), never one a page shows."""
+
     name: str
     pay_url: str
+    search_url: str | None = None  # the biller's own site search, with {q}
+    search_result: str = ".result a"  # a search result's link
+    account: str = "#account"  # present only on the payment page
+    amount: str = "#amount"
+    card_name: str = "#card_name"
+    card_number: str = "#card_number"
+    card_expiry: str = "#card_expiry"
+    card_cvc: str = "#card_cvc"
+    pay: FinalSubmit = FinalSubmit("#submit")  # Pay now: pressed only after Confirm
+    receipt: str = "#receipt"  # present only once the biller has taken the payment
+    login_wall: str = "input[type=password]"
+
+    def search(self, query: str) -> str | None:
+        return self.search_url.format(q=quote_plus(query)) if self.search_url else None
 
 
 @dataclass(frozen=True)
@@ -100,6 +120,9 @@ REAL = {
         "receipt": "#receipt",  # PD
     },
     "ladwp_pay_url": "https://www.ladwp.com/account/payments",
+    # PD: the biller's site search, and every biller selector (Biller above) is the
+    # fixture default until PD reads the live page and writes the real ones here.
+    "ladwp_search_url": "https://www.ladwp.com/search?keys={q}",
     # PD: the stores' search URLs; every other store selector is the fixture default
     # (Store above) until PD reads each live page and writes the real ones here.
     "stores": [
@@ -126,7 +149,7 @@ class SiteMap:
                 contest=FinalSubmit(la["contest"]),
             )
         }
-        sites.billers = {"ladwp": Biller(name="LADWP", pay_url=str(REAL["ladwp_pay_url"]))}
+        sites.billers = {"ladwp": Biller(name="LADWP", pay_url=str(REAL["ladwp_pay_url"]), search_url=str(REAL["ladwp_search_url"]))}
         sites.stores = [Store(name=name, search_url=url) for name, url in REAL["stores"]]  # type: ignore[misc]
         return sites
 
@@ -154,7 +177,7 @@ class SiteMap:
                 receipt="#receipt",
             )
         }
-        self.billers = {"ladwp": Biller(name="LADWP", pay_url=f"{sites}/ladwp/pay")}
+        self.billers = {"ladwp": Biller(name="LADWP", pay_url=f"{sites}/ladwp/pay", search_url=f"{sites}/ladwp/search?q={{q}}")}
         # Store order is the ranking's tie order (product.feature, D16): Target, Walmart, Amazon.
         self.stores = [
             Store(name="Target", search_url=f"{sites}/target/search?q={{q}}"),

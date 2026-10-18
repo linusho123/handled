@@ -2,11 +2,13 @@
 
 TicketChore (D9-D13): the city's pay-or-contest page with the citation and the
 plate filled, Pay or Contest on the card, the payment form with the card on
-file or the contest form with the letter, then the Confirm gate. ProductChore
-(D16-D18): three store tabs, the prices read from each product page, the ranked
-card with Buy on the cheapest, Buy to checkout, then the Confirm gate. BillChore
-here only opens the biller's payment page (identify.feature, D4); the bill chore
-is P4.
+file or the contest form with the letter, then the Confirm gate. BillChore
+(D14, D15): the biller's payment page with the account number, the amount and the
+card on file filled, then the Confirm gate; with no payment page found, a page that
+does not answer or a login wall, nothing is paid and the card shows "call to pay"
+with the phone number the bill itself prints. ProductChore (D16-D18): three store
+tabs, the prices read from each product page, the ranked card with Buy on the
+cheapest, Buy to checkout, then the Confirm gate.
 
 Every chore end is reported (D19): a step that completes after Confirm, a pause
 at Confirm (Desk.pause_for_confirm) and a failed step each call Desk.report once,
@@ -33,7 +35,7 @@ from app.desk.state import Desk
 from app.desk.wallet import CARD_ON_FILE, SHIP_TO
 from app.eye import Identification
 from app.hands import Hands
-from app.hands.sitemap import CityPortal, SiteMap, Store
+from app.hands.sitemap import Biller, CityPortal, SiteMap, Store
 
 
 class StepFailed(Exception):
@@ -86,10 +88,14 @@ class BaseChore:
             self.desk.card.failed_step = failed.step
             if self.page is not None:
                 self.desk.card.link = self.page.url
-            self.desk.report(failed.step)  # D19: a failed step is a chore end
+            self.desk.report(self._stopped_at(failed.step))  # D19: a failed step is a chore end
         finally:
             if self.page is not None:
                 self.desk.card.link = self.page.url
+
+    def _stopped_at(self, step: str) -> str:
+        """What the card and the text say was done when the chore stopped at `step`."""
+        return step
 
     async def _open(self, url: str, step: str) -> Page:
         """Navigate the chore's tab; a page that does not answer is a failed step, and the tab stays."""
@@ -243,15 +249,110 @@ class TicketChore(BaseChore):
         self.desk.report(done)  # D19: completed after Confirm
 
 
+CALL_TO_PAY = "call to pay"
+
+
+def amount_shown(amount: Any) -> str:
+    """148.22 → "$148.22", the amount as the card and the texts say it."""
+    return f"${Decimal(str(amount)).quantize(Decimal('0.01'))}"
+
+
 class BillChore(BaseChore):
-    """P1 opens the biller's payment page (D4); filling and paying it is P4."""
+    """D14: the biller's payment page in the visible browser (the SiteMap's; with none
+    there, the biller's own site search for it), the account number, the amount and the
+    card on file filled, then the pause before paying (D7). D15, D26: no payment page
+    found, a page that does not answer or a login wall stops the chore with nothing paid,
+    the browser left where it stood, and the card shows "call to pay" with the phone
+    number printed on the bill: the identification's own field, never a page's."""
+
+    def __init__(self, *args: Any) -> None:
+        super().__init__(*args)
+        self.biller: Biller | None = None
+
+    @property
+    def name(self) -> str:
+        return str(self.fields.get("biller") or "the biller")
+
+    @property
+    def amount(self) -> str:
+        return amount_shown(self.fields["amount"])
+
+    @property
+    def begin_step(self) -> str:
+        return f"Could not fill the {self.name} payment page"
+
+    def _stopped_at(self, step: str) -> str:
+        phone = self.fields.get("phone")  # as the bill prints it (the eye's read)
+        if not phone:
+            return step
+        self.desk.card.call_to_pay = str(phone)
+        return f"{step}: {CALL_TO_PAY} {phone}"
 
     async def _begin(self) -> None:
         self.desk.card.deadline, self.desk.card.deadline_note = deadline_for("bill", self.fields)
-        biller = self.sites.biller(self.fields.get("biller"))
-        if biller is None:
-            raise StepFailed(f"No payment page is known for {self.fields.get('biller')}")
-        await self._open(biller.pay_url, f"Could not reach the {biller.name} payment page")
+        self.biller = self.sites.biller(self.fields.get("biller"))
+        if self.biller is None:
+            # A biller the SiteMap does not know. Its finder (Browser Use) is deferred (P4: its
+            # cassette could not be recorded), so the chore stops here with "call to pay".
+            raise StepFailed(f"No payment page is known for {self.name}")
+        biller = self.biller
+        unreachable = f"Could not reach the {biller.name} payment page"
+        page = await self._open(biller.pay_url, unreachable)
+        await self._no_login(page)
+        if not await self._is_payment_page(page):
+            page = await self._search(biller, unreachable)
+        await page.fill(biller.account, str(self.fields["account"]))
+        await page.fill(biller.amount, str(self.fields["amount"]))
+        await page.fill(biller.card_name, CARD_ON_FILE.name)
+        await page.fill(biller.card_number, CARD_ON_FILE.number)
+        await page.fill(biller.card_expiry, CARD_ON_FILE.expiry)
+        await page.fill(biller.card_cvc, CARD_ON_FILE.cvc)
+        self.desk.card.link = page.url
+        refused = f"The {biller.name} page did not take the payment"
+        self.desk.pause_for_confirm(
+            lambda: self._run(refused, self._pay, refused),
+            f"Ready to pay {biller.name} {self.amount}, waiting for you",
+        )
+
+    async def _is_payment_page(self, page: Page) -> bool:
+        assert self.biller is not None
+        return await page.locator(self.biller.account).count() > 0
+
+    async def _no_login(self, page: Page) -> None:
+        assert self.biller is not None
+        if await page.locator(self.biller.login_wall).count() > 0:
+            raise StepFailed(f"The {self.biller.name} page asks for a login", page.url)  # D26: no passwords
+
+    async def _search(self, biller: Biller, unreachable: str) -> Page:
+        """No payment page where the SiteMap put it: the biller's own search, and the first
+        result whose words say pay. None found is the stop, on the results it tried (D15)."""
+        not_found = f"No payment page for {biller.name} was found"
+        url = biller.search(f"pay {biller.name} bill")
+        if url is None:
+            raise StepFailed(not_found, self.page.url if self.page is not None else None)
+        page = await self._open(url, unreachable)
+        await self._no_login(page)
+        results = page.locator(biller.search_result)
+        for i in range(await results.count()):
+            hit = results.nth(i)
+            if re.search(r"\bpay\b", await hit.inner_text(), re.IGNORECASE):
+                async with page.expect_navigation() as navigation:
+                    await hit.click()
+                await self._answered(await navigation.value, unreachable)
+                await self._no_login(page)
+                if await self._is_payment_page(page):
+                    return page
+                break
+        raise StepFailed(not_found, page.url)
+
+    async def _pay(self, refused: str) -> None:
+        """Runs only from Desk.confirm (the Confirm gate); the biller's receipt is what says it is paid."""
+        assert self.biller is not None and self.page is not None
+        await self.hands.submit_final(self.page, self.biller.pay, self.desk)
+        if await self.page.locator(self.biller.receipt).count() == 0:
+            raise StepFailed(refused, self.page.url)
+        self.desk.card.link = self.page.url
+        self.desk.report(f"Paid {self.biller.name} {self.amount}")  # D19: completed after Confirm
 
 
 @dataclass(frozen=True)

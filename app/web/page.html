@@ -40,7 +40,7 @@ function render(desk) {
     const f = desk.identified.fields;
     lines.push(desk.identified.kind + ': ' + Object.entries(f).filter(([, v]) => v).map(([k, v]) => k + ' ' + v).join(', '));
   }
-  for (const key of ['notice', 'question', 'letter', 'done', 'failed_step']) if (desk[key] && !(key === 'failed_step' && desk[key] === desk.done)) lines.push(desk[key]);
+  for (const key of ['notice', 'question', 'letter', 'done', 'failed_step']) if (desk[key] && !(key === 'failed_step' && desk.done && desk.done.startsWith(desk[key]))) lines.push(desk[key]);
   (desk.ranking || []).forEach((r, i) => lines.push((i + 1) + '. ' + r.store + ' ' + r.price + (r.store === desk.buy ? ' (Buy)' : '')));
   for (const store of desk.not_found || []) lines.push(store + ': not found');
   if (desk.deadline) lines.push('Due ' + desk.deadline + (desk.deadline_note ? ' (' + desk.deadline_note + ')' : ''));

@@ -10,15 +10,14 @@
 // each text stamped with the app's virtual clock when it was sent. No step waits
 // real time: the clock moves only through POST /test/advance.
 //
-// Held in the wip register (test/features.test.ts): the D19 row whose chore end
-// is built later (the LADWP bill paused at Confirm on its payment page, P4). Its
-// distinguishing step stays unbound. The Cholula row is the product chore's order
-// from Walmart after Confirm, the far side Walmart's own ledger (P3). D21 is
-// bound through the product chore's other end: no store lists it (D17), reported
-// with no deadline.
+// The LADWP row of D19 is the bill chore paused at Confirm on the biller's payment
+// page, the far side the biller's own ledger, still empty (P4). The Cholula row is
+// the product chore's order from Walmart after Confirm, the far side Walmart's own
+// ledger (P3). D21 is bound through the product chore's other end: no store lists
+// it (D17), reported with no deadline.
 import { expect } from 'vitest'
 import type { Definer } from 'gherkin-node-test/vitest'
-import { cardWithinFive, holdUp, imageWith, openApp, required, show, type World as DeskWorld } from './desk.ts'
+import { FIXTURES, cardWithinFive, holdUp, imageWith, openApp, path, required, show, type World as DeskWorld } from './desk.ts'
 import { STORES, expectBuyOn, expectCheckout, lists, productChoreBegins, site, storeLedgers, type StoreWorld } from './stores.ts'
 
 type World = DeskWorld & StoreWorld & {
@@ -67,6 +66,17 @@ async function payAndPause(w: World): Promise<void> {
   expect(await app.ledger('la-citations')).toEqual([])
 }
 
+/** The bill chore begins: it pauses at Confirm on the biller's payment page, nothing paid (D14). */
+async function billAndPause(w: World): Promise<void> {
+  const app = required(w.app, 'app')
+  await holdUp(w, required(w.thing, 'thing'))
+  await cardWithinFive(w)
+  const desk = await app.desk()
+  expect(desk.controls, show(desk)).toEqual(['Confirm'])
+  expect(path(await app.browser())).toBe('/sites/ladwp/pay')
+  expect(await app.ledger('ladwp')).toEqual([])
+}
+
 const LADWP_BILL = /^an LADWP bill for \$([\d.]+) due (\S+) on account (\d+)$/
 const LA_TICKET = /^a Los Angeles parking ticket for citation (\d+) due (\S+)$/
 
@@ -80,6 +90,10 @@ const report: Definer<World> = (reg) => {
 
   reg.define(/^the user has held up a Los Angeles parking ticket for citation (\d+) due (\S+)$/, async (w, citation, due) => {
     w.thing = imageWith('ticket', { city: 'Los Angeles', citation: String(citation), due: String(due) })
+  })
+
+  reg.define(/^the user has held up an LADWP bill for \$([\d.]+) due (\S+) on account (\d+)$/, async (w, amount, due, account) => {
+    w.thing = imageWith('bill', { biller: 'LADWP', amount: String(amount), due: String(due), account: String(account) })
   })
 
   reg.define(/^the chore has (been confirmed as paid|paused at Confirm on the payment page|stopped because the city's page did not answer)$/, async (w, ended) => {
@@ -122,6 +136,12 @@ const report: Definer<World> = (reg) => {
       await cardWithinFive(w)
       return
     }
+    if (FIXTURES[required(w.thing, 'thing')]!.kind === 'bill') {
+      // The bill chore has one end at Confirm: it pauses on the payment page as it begins.
+      expect(ending).toBe(ENDINGS[1])
+      await billAndPause(w)
+      return
+    }
     await payAndPause(w)
     if (ending === ENDINGS[0]) {
       w.textsBefore = (await app.texts()).length
@@ -135,6 +155,19 @@ const report: Definer<World> = (reg) => {
     const desk = await app.desk()
     expect(desk.identified?.kind, show(desk)).toBe('ticket')
     expect(desk.identified?.fields.citation).toBe(String(citation))
+    expect(desk.done).toBe(String(done))
+    expect(desk.deadline).toBe(String(deadline))
+    const view = await app.browser()
+    expect(view.url, show(view)).not.toBeNull()
+    expect(desk.link).toBe(view.url)
+  })
+
+  reg.define(/^the user sees a card with (\w+) \$([\d.]+), "([^"]*)", (\d{4}-\d{2}-\d{2}) and a link to the page the browser is on$/, async (w, biller, amount, done, deadline) => {
+    const app = required(w.app, 'app')
+    const desk = await app.desk()
+    expect(desk.identified?.kind, show(desk)).toBe('bill')
+    expect(desk.identified?.fields.biller).toBe(String(biller))
+    expect(desk.identified?.fields.amount).toBe(String(amount))
     expect(desk.done).toBe(String(done))
     expect(desk.deadline).toBe(String(deadline))
     const view = await app.browser()
@@ -187,14 +220,9 @@ const report: Definer<World> = (reg) => {
       w.thing = imageWith('ticket', { city: 'Los Angeles', citation: m[1]!, due: m[2]! })
       await payAndPause(w)
     } else if ((m = String(thing).match(LADWP_BILL))) {
-      // Any end of D19 reports the deadline; the bill chore's end before P4 is its
-      // failed step: the biller's page does not answer.
+      // Any end of D19 reports the deadline; the bill chore's is its pause at Confirm.
       w.thing = imageWith('bill', { biller: 'LADWP', amount: m[1]!, due: m[2]!, account: m[3]! })
-      await app.setSite('ladwp', { fault: 'down' })
-      await holdUp(w, w.thing)
-      await cardWithinFive(w)
-      const desk = await app.desk()
-      expect(desk.failed_step, show(desk)).toBe('Could not reach the LADWP payment page')
+      await billAndPause(w)
     } else {
       throw new Error(`no chore for "${String(thing)}"`)
     }

@@ -29,6 +29,8 @@ export type Desk = {
   letter: string | null
   notice: string | null
   failed_step: string | null
+  /** A bill that could not be paid online: the phone number printed on it (D15). */
+  call_to_pay: string | null
   /** The product chore: the stores listing it, cheapest first, with the price their page shows. */
   ranking: { store: string; price: string; link: string }[]
   /** The stores marked "not found", in store order. */

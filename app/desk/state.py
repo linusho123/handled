@@ -57,6 +57,7 @@ class Card:
     letter: str | None = None  # the contest letter, as pasted into the city's form
     notice: str | None = None  # "Hold it closer"
     failed_step: str | None = None  # the step's name when a chore stops
+    call_to_pay: str | None = None  # a bill that could not be paid online: the phone number printed on it (D15)
     # The product chore (D16, D17): the stores that list the product, cheapest first, each
     # {"store", "price" ("$8.98", as its page shows it), "link"}; the stores marked "not found",
     # in store order; and the store the Buy control is on (the cheapest), while it shows.

@@ -4,6 +4,7 @@ import { basename, join, resolve } from 'node:path'
 import { afterAll } from 'vitest'
 import { runFeatures, type Definer, type WipEntry } from 'gherkin-node-test/vitest'
 import { closeApp } from './harness/app.ts'
+import bill from './steps/bill.steps.ts'
 import identify from './steps/identify.steps.ts'
 import product from './steps/product.steps.ts'
 import report from './steps/report.steps.ts'
@@ -22,21 +23,14 @@ const ROOT = resolve(import.meta.dirname, '..')
 const FEATURE_DIR = join(ROOT, 'features')
 
 // The wip register: features (or scenarios) not yet bound. It only shrinks.
-// P1 bound ticket and identify; P3 bound the two D8 scenarios' store steps and
-// product. P2 bound report, but for the chore ends built later: the D19
-// outline's LADWP row (the bill paused at Confirm on its payment page, P4) stays
-// unbound at its "the user has held up …" step; its Cholula row (the order from
-// Walmart) is bound by P3 and runs with the three ticket rows.
-const WIP: WipEntry[] = [
-  'bill', // P4
-  {
-    feature: 'report',
-    scenarios: ['Every ending is reported on the card and in one text'], // P4: the LADWP row
-  },
-]
+// P1 bound ticket and identify; P2 bound report; P3 bound product, the two D8
+// scenarios' store steps and report's Cholula row; P4 bound bill and report's
+// LADWP row (the bill paused at Confirm on its payment page). Nothing is held.
+const WIP: WipEntry[] = []
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each feature's world type is its own
 const definers: Record<string, Definer<any>> = {
+  bill,
   identify,
   product,
   report,

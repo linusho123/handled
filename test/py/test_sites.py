@@ -44,6 +44,7 @@ def test_visiting_every_page_writes_no_ledger(sites, client):
         "/sites/la-citations/login",
         "/sites/ladwp/",
         "/sites/ladwp/pay",
+        "/sites/ladwp/search?q=pay+LADWP+bill",
         "/sites/ladwp/login",
     ]
     for store in ("target", "walmart", "amazon"):
@@ -138,9 +139,14 @@ def test_city_faults(sites, client):
 
 
 def test_biller_faults(sites, client):
+    assert "Pay my bill" in client.get("/sites/ladwp/search?q=pay").text
     sites["ladwp"].set_fault("nopage")
     assert client.get("/sites/ladwp/pay").status_code == 404
     assert "Pay my bill" not in client.get("/sites/ladwp/").text
+    search = client.get("/sites/ladwp/search?q=pay")
+    assert search.status_code == 200 and "Pay my bill" not in search.text and "/sites/ladwp/pay" not in search.text
+    sites["ladwp"].set_fault("login")
+    assert client.get("/sites/ladwp/search?q=pay").headers["location"] == "/sites/ladwp/login"
     sites["ladwp"].set_fault("down")
     assert (client.get("/sites/ladwp/").status_code, client.get("/sites/ladwp/").content) == (503, b"")
 
