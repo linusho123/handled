@@ -16,13 +16,15 @@ from typing import Any
 
 from app.desk.deadlines import human_date
 
-# A stable namespace for idempotency keys: the same chore event always gets the same key.
+# A stable namespace for idempotency keys: the same event of the same chore always gets
+# the same key; a new chore (a new hold-up, even of the same ticket) gets new ones.
 _KEYS = uuid.UUID("6f0c1c1e-8a63-4c55-9d3e-2b1d6f1a9e70")
 
 
 @dataclass(frozen=True)
 class Reminder:
     at: datetime  # when it goes, on the desk's clock
+    until: datetime  # when it is dropped unsent: the deadline day has begun
     body: str
     key: str
 
@@ -45,9 +47,16 @@ def chore_key(kind: str, fields: dict[str, Any]) -> str:
     return f"{kind}:{fields.get('name')}:{fields.get('size')}"
 
 
-def event_key(chore: str, event: str) -> str:
-    """A stable idempotency key per chore event (a resend of the same event is the same message)."""
-    return str(uuid.uuid5(_KEYS, f"{chore}|{event}"))
+def new_chore_id() -> str:
+    """One chore instance: each hold-up that begins a chore gets its own."""
+    return uuid.uuid4().hex
+
+
+def event_key(chore: str, chore_id: str, event: str) -> str:
+    """A stable idempotency key per chore event: a resend of the same event of the same
+    chore instance is the same message; another hold-up of the same thing is a new chore
+    with new keys, so a rehearsal never swallows the demo's text (risk-3)."""
+    return str(uuid.uuid5(_KEYS, f"{chore}#{chore_id}|{event}"))
 
 
 def report_text(done: str, deadline: str | None, note: str | None) -> str:

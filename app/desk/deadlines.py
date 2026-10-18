@@ -48,6 +48,12 @@ def reminder_at(deadline: str) -> datetime:
     return datetime.combine(date.fromisoformat(deadline) - timedelta(days=REMINDER_DAYS_BEFORE), REMINDER_TIME)
 
 
+def reminder_until(deadline: str) -> datetime:
+    """When the day-before text stops being true: the deadline day has begun (midnight
+    local). From then on "the deadline is tomorrow" would be false, so it is not sent."""
+    return datetime.combine(date.fromisoformat(deadline), time(0, 0))
+
+
 def human_date(iso: str) -> str:
     """2026-11-02 → "Nov 2, 2026", the way a text says it."""
     d = date.fromisoformat(iso)

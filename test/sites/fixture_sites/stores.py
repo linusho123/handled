@@ -9,7 +9,8 @@
 
 A store lists a product only at a price set for the scenario (POST /test/sites
 {"site", "prices": {slug: "9.49"}}); with no price set it lists nothing.
-Fault: `nolisting` (the store lists nothing, whatever its prices).
+Faults: `nolisting` (the store lists nothing, whatever its prices), `down`
+(every page answers nothing).
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ def _money(value: Any) -> str:
 
 
 class StoreSite(Site):
-    faults = frozenset({"nolisting"})
+    faults = frozenset({"nolisting", "down"})
 
     def __init__(self, name: str, title: str) -> None:
         super().__init__()
@@ -73,7 +74,9 @@ class StoreSite(Site):
         base = f"/sites/{self.name}"
 
         @r.get("/")
-        def home() -> Response:
+        def home(request: Request) -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             return page(
                 self.title,
                 f"<form method='get' action='{base}/search'><label>Search <input name='q' id='q'></label>"
@@ -81,7 +84,9 @@ class StoreSite(Site):
             )
 
         @r.get("/search")
-        def search(q: str = "") -> Response:
+        def search(request: Request, q: str = "") -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             words = [w for w in q.lower().replace(",", " ").split() if w]
             hits = [
                 (slug, name, price)
@@ -96,7 +101,9 @@ class StoreSite(Site):
             return page(f"{self.title} - Search: {q}", body)
 
         @r.get("/product/{slug}")
-        def product(slug: str) -> Response:
+        def product(request: Request, slug: str) -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             price = self._listed(slug)
             if price is None:
                 return page(f"{self.title} - Not found", "<p>This item is not available.</p>", 404)
@@ -108,20 +115,26 @@ class StoreSite(Site):
             )
 
         @r.post("/cart")
-        def add_to_cart(slug: str = Form(...)) -> Response:
+        def add_to_cart(request: Request, slug: str = Form(...)) -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             if self._listed(slug) is None:
                 return page(f"{self.title} - Not found", "<p>This item is not available.</p>", 404)
             self.cart.append(slug)
             return RedirectResponse(f"{base}/cart", status_code=303)
 
         @r.get("/cart")
-        def cart() -> Response:
+        def cart(request: Request) -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             items = "".join(f"<li class='cart-item' data-slug='{esc(s)}'>{esc(CATALOG[s])}</li>" for s in self.cart)
             checkout = f"<a id='checkout' href='{base}/checkout'>Check out</a>" if self.cart else ""
             return page(f"{self.title} - Cart", f"<ul id='cart'>{items}</ul>{checkout}")
 
         @r.get("/checkout")
-        def checkout() -> Response:
+        def checkout(request: Request) -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             items = "".join(f"<li class='cart-item' data-slug='{esc(s)}'>{esc(CATALOG[s])}</li>" for s in self.cart)
             return page(
                 f"{self.title} - Checkout",
@@ -139,6 +152,7 @@ class StoreSite(Site):
 
         @r.post("/order")
         def order(
+            request: Request,
             ship_name: str = Form(...),
             ship_street: str = Form(...),
             ship_city: str = Form(...),
@@ -148,6 +162,8 @@ class StoreSite(Site):
             card_expiry: str = Form(...),
             card_cvc: str = Form(...),
         ) -> Response:
+            if blocked := self.fault_response(request):
+                return blocked
             ship = {"name": ship_name, "street": ship_street, "city": ship_city, "state": ship_state, "zip": ship_zip}
             if not self.cart:
                 return page(f"{self.title} - Checkout", "<p role='alert'>Your cart is empty.</p>", 400)

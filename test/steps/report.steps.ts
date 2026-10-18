@@ -12,8 +12,9 @@
 //
 // Held in the wip register (test/features.test.ts): the D19 rows whose chore
 // ends are built later (the LADWP bill paused at Confirm on its payment page,
-// P4; the Cholula order from Walmart, P3) and D21, whose product chore cannot end
-// before P3. Their distinguishing steps stay unbound.
+// P4; the Cholula order from Walmart, P3). Their distinguishing steps stay
+// unbound. D21 is bound through the product chore's end before P3: its failed
+// step, the first store's page not answering, reported with no deadline.
 import { expect } from 'vitest'
 import type { Definer } from 'gherkin-node-test/vitest'
 import { cardWithinFive, holdUp, imageWith, openApp, required, show, type World as DeskWorld } from './desk.ts'
@@ -29,7 +30,15 @@ type World = DeskWorld & {
   textsJustBeforeNine?: number
   /** The virtual time the D20 clock was moved to (local ISO). */
   nine?: string
+  /** The one text the product chore's end sent (D21). */
+  firstText?: { body: string; at: string }
+  /** The virtual time the product chore was reported at (D21). */
+  reportedAt?: string
 }
+
+/** D21: the clock walks the thirty days an hour at a time, so a text due at any hour goes on its own tick. */
+const DAY = 86400
+const HOUR = 3600
 
 const ENDINGS = ['been confirmed as paid', 'paused at Confirm on the payment page', "stopped because the city's page did not answer"] as const
 
@@ -167,6 +176,46 @@ const report: Definer<World> = (reg) => {
     expect(second.body).toContain(String(chore))
     expect(second.body).toMatch(/\bdeadline\b.*\bis tomorrow\b/)
     expect(second.body).toContain(human(required(w.deadline, 'deadline')))
+  })
+
+  // --- D21 -------------------------------------------------------------------------
+
+  reg.define(/^the user has held up a (\d+ oz) bottle of (.+) and the chore was reported with no deadline$/, async (w, size, name) => {
+    const app = required(w.app, 'app')
+    // The product chore's end before P3 is its failed step: the first store's page does
+    // not answer. D19 reports it on the card and in one text, with no deadline.
+    await app.setSite('target', { fault: 'down' })
+    w.thing = imageWith('product', { name: String(name), size: String(size) })
+    await holdUp(w, w.thing)
+    await cardWithinFive(w)
+    const desk = await app.desk()
+    expect(desk.identified?.kind, show(desk)).toBe('product')
+    expect(desk.identified?.fields.name?.toLowerCase()).toBe(String(name).toLowerCase())
+    expect(desk.identified?.fields.size?.toLowerCase()).toBe(String(size).toLowerCase())
+    expect(desk.failed_step, show(desk)).toBe('Could not reach Target')
+    expect(desk.done).toBe('Could not reach Target')
+    expect(desk.deadline).toBeNull()
+    const texts = await app.texts()
+    expect(texts, show(texts)).toHaveLength(1)
+    expect(texts[0]!.body).toContain('Could not reach Target')
+    expect(texts[0]!.body).toContain('No deadline')
+    expect(texts[0]!.at).toBe(app.now)
+    w.firstText = { body: texts[0]!.body, at: texts[0]!.at }
+    w.reportedAt = app.now
+  })
+
+  reg.define(/^(\d+) days pass$/, async (w, days) => {
+    const app = required(w.app, 'app')
+    const from = app.now
+    for (let hour = 0; hour < Number(days) * 24; hour++) await app.advance(HOUR)
+    expect(secondsUntil(from, app.now)).toBe(Number(days) * DAY)
+  })
+
+  reg.define(/^the user's phone receives no second text$/, async (w) => {
+    const app = required(w.app, 'app')
+    const texts = await app.texts()
+    expect(secondsUntil(required(w.reportedAt, 'reportedAt'), app.now), 'the clock has not moved past the report').toBeGreaterThan(0)
+    expect(texts.map((t) => ({ body: t.body, at: t.at })), show(texts)).toEqual([required(w.firstText, 'firstText')])
   })
 }
 

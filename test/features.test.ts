@@ -25,9 +25,9 @@ const FEATURE_DIR = join(ROOT, 'features')
 // identification steps are bound and whose store-search steps are P3's.
 // P2 bound report, but for the chore ends built later: the D19 outline's LADWP
 // row (the bill paused at Confirm on its payment page, P4) and Cholula row (the
-// order from Walmart, P3), and D21 (a product chore that ends, P3). The D19
-// outline's three ticket rows run; its two held rows stay unbound at their
-// "the user has held up …" step.
+// order from Walmart, P3). The D19 outline's three ticket rows run; its two held
+// rows stay unbound at their "the user has held up …" step. D21 runs, through
+// the product chore's failed-step end.
 const WIP: WipEntry[] = [
   'bill', // P4
   {
@@ -37,7 +37,7 @@ const WIP: WipEntry[] = [
   'product', // P3
   {
     feature: 'report',
-    scenarios: ['Every ending is reported on the card and in one text', 'A product gets no second text'], // P4: the LADWP row; P3: the Cholula row and D21
+    scenarios: ['Every ending is reported on the card and in one text'], // P4: the LADWP row; P3: the Cholula row
   },
 ]
 

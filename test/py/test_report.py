@@ -100,6 +100,8 @@ def test_d20_one_second_text_per_chore_however_many_ends():
     desk, clock, texts = _desk("ticket", TICKET)
     desk.report("Ready to pay citation 4512087733, waiting for you")
     desk.report("Paid citation 4512087733")
+    # Through the day before (when the second text goes) and on past the deadline.
+    _advance(desk, clock, _until(clock, datetime(2026, 11, 1, 12)))
     _advance(desk, clock, _until(clock, datetime(2026, 11, 3)))
     assert [t["body"].startswith("Reminder") for t in texts.sent] == [False, False, True]
 
@@ -136,15 +138,71 @@ def test_a_reset_drops_the_waiting_second_text():
     assert len(texts.sent) == 1
 
 
+def _begun(desk):
+    """The chore begins on the desk, the way a hold-up begins it (Desk._begin)."""
+    desk.chores = lambda d, i: _Chore()
+    asyncio.run(desk._begin())
+
+
 def test_the_idempotency_key_is_stable_per_chore_event():
     desk, clock, texts = _desk("ticket", TICKET)
+    _begun(desk)
     desk.report("Ready to pay citation 4512087733, waiting for you")
-    again, _, again_texts = _desk("ticket", TICKET)
-    again.report("Ready to pay citation 4512087733, waiting for you")
-    assert texts.sent[0]["key"] == again_texts.sent[0]["key"]
     desk.report("Paid citation 4512087733")
     assert texts.sent[1]["key"] != texts.sent[0]["key"]
-    assert event_key(chore_key("ticket", TICKET), "reminder:2026-11-02") != event_key(chore_key("ticket", {**TICKET, "citation": "4512087735"}), "reminder:2026-11-02")
+    # The same chore and event give the same key: a resend of one event is one message.
+    chore = desk.chore_id
+    assert chore is not None
+    assert texts.sent[0]["key"] == event_key(chore_key("ticket", TICKET), chore, "end:Ready to pay citation 4512087733, waiting for you")
+    assert event_key(chore_key("ticket", TICKET), chore, "reminder:2026-11-02") == event_key(chore_key("ticket", TICKET), chore, "reminder:2026-11-02")
+    assert event_key(chore_key("ticket", TICKET), chore, "reminder:2026-11-02") != event_key(
+        chore_key("ticket", {**TICKET, "citation": "4512087735"}), chore, "reminder:2026-11-02"
+    )
+
+
+def test_risk_3_two_hold_ups_of_the_same_citation_give_different_keys():
+    # risk-3: three rehearsals to the Confirm pause and then the demo, each with citation
+    # 4512087733, must each deliver: a new chore is a new message, never a duplicate.
+    keys = []
+    for _ in range(4):
+        desk, clock, texts = _desk("ticket", TICKET)
+        _begun(desk)
+        desk.report("Ready to pay citation 4512087733, waiting for you")
+        keys.append(texts.sent[0]["key"])
+    assert len(set(keys)) == 4, keys
+    # The same desk, reset and the ticket held up again: a new chore, new keys.
+    desk, clock, texts = _desk("ticket", TICKET)
+    _begun(desk)
+    desk.report("Ready to pay citation 4512087733, waiting for you")
+    first, reminder = texts.sent[0]["key"], desk.reminders[0].key
+    desk.reset()
+    desk.identification = Identification(kind="ticket", fields=dict(TICKET), confidence=1.0)
+    desk.card.deadline, desk.card.deadline_note = deadline_for("ticket", TICKET)
+    _begun(desk)
+    desk.report("Ready to pay citation 4512087733, waiting for you")
+    assert texts.sent[1]["key"] != first
+    assert desk.reminders[0].key != reminder
+
+
+def test_risk_2_a_day_before_text_is_never_sent_on_or_after_the_deadline_day():
+    # risk-2: a clock that first moves past nine the day before only on the deadline day
+    # (or later) drops the reminder; "the deadline is tomorrow" would be false.
+    desk, clock, texts = _desk("ticket", {**TICKET, "due": "2026-10-19"}, start=datetime(2026, 10, 17, 12, 0))
+    desk.report("Paid citation 4512087733")
+    assert len(desk.reminders) == 1
+    _advance(desk, clock, 3 * 86400)
+    assert [t["body"] for t in texts.sent] == ["Paid citation 4512087733. Due Oct 19, 2026."]
+    assert desk.reminders == []
+    _advance(desk, clock, 86400)
+    assert len(texts.sent) == 1
+
+
+@pytest.mark.parametrize("at, sent", [(datetime(2026, 10, 18, 23, 59, 59), True), (datetime(2026, 10, 19, 0, 0), False), (datetime(2026, 10, 19, 9, 0), False)])
+def test_risk_2_the_day_before_text_goes_only_while_it_is_still_the_day_before(at, sent):
+    desk, clock, texts = _desk("ticket", {**TICKET, "due": "2026-10-19"}, start=datetime(2026, 10, 17, 12, 0))
+    desk.report("Paid citation 4512087733")
+    _advance(desk, clock, _until(clock, at))
+    assert [t["body"].startswith("Reminder") for t in texts.sent] == ([False, True] if sent else [False])
 
 
 class _SlowEye:

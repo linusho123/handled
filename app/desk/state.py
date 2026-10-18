@@ -31,8 +31,8 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from app.desk.clock import Clock, VirtualClock
-from app.desk.deadlines import REMINDED_KINDS, reminder_at
-from app.desk.report import Reminder, chore_key, chore_name, event_key, reminder_text, report_text
+from app.desk.deadlines import REMINDED_KINDS, reminder_at, reminder_until
+from app.desk.report import Reminder, chore_key, chore_name, event_key, new_chore_id, reminder_text, report_text
 from app.desk.texts import FakeTexts, Texts
 from app.eye import Frame, Identification, size_text
 
@@ -107,6 +107,7 @@ class Desk:
         self.eye_delay = 0.0  # test mode: seconds of virtual time the eye takes to answer
         self.identification: Identification | None = None
         self.chore: Chore | None = None
+        self.chore_id: str | None = None  # this chore instance, in every idempotency key (risk-3)
         self._attempt: _Attempt | None = None
         self._paused: Callable[[], Awaitable[None]] | None = None
         self.confirmed = False
@@ -168,6 +169,7 @@ class Desk:
         assert self.identification is not None
         if self.chores is None:
             raise RuntimeError("the desk has no hands")
+        self.chore_id = new_chore_id()
         self.chore = self.chores(self, self.identification)
         await self.chore.begin()
 
@@ -227,8 +229,11 @@ class Desk:
         kind = ident.kind if ident is not None else "unknown"
         fields = ident.fields if ident is not None else {}
         chore = chore_key(kind, fields)
+        if self.chore_id is None:
+            self.chore_id = new_chore_id()
+        chore_id = self.chore_id
         now = self.clock.now()
-        self.texts.send(report_text(done, card.deadline, card.deadline_note), now.isoformat(), event_key(chore, f"end:{done}"))
+        self.texts.send(report_text(done, card.deadline, card.deadline_note), now.isoformat(), event_key(chore, chore_id, f"end:{done}"))
         name = chore_name(kind, fields)
         if self._reminded or kind not in REMINDED_KINDS or card.deadline is None or name is None:
             return  # D21: a product has no deadline and gets no second text
@@ -236,16 +241,26 @@ class Desk:
         if at <= now:
             return  # nine the day before has already passed: the end's own text named the deadline
         self._reminded = True
-        self.reminders.append(Reminder(at=at, body=reminder_text(name, card.deadline), key=event_key(chore, f"reminder:{card.deadline}")))
+        self.reminders.append(
+            Reminder(
+                at=at,
+                until=reminder_until(card.deadline),
+                body=reminder_text(name, card.deadline),
+                key=event_key(chore, chore_id, f"reminder:{card.deadline}"),
+            )
+        )
 
     def _remind(self, now: datetime) -> None:
-        """Send every day-before text whose time the clock has reached, stamped with the clock's time."""
-        due = sorted((r for r in self.reminders if r.at <= now), key=lambda r: r.at)
-        if not due:
+        """Send every day-before text whose time the clock has reached, stamped with the clock's
+        time, while it is still the day before: once the deadline day has begun the text would
+        say a false "tomorrow", so it is dropped unsent (risk-2)."""
+        reached = [r for r in self.reminders if r.at <= now]
+        if not reached:
             return
         self.reminders = [r for r in self.reminders if r.at > now]
-        for reminder in due:
-            self.texts.send(reminder.body, now.isoformat(), reminder.key)
+        for reminder in sorted(reached, key=lambda r: r.at):
+            if now < reminder.until:
+                self.texts.send(reminder.body, now.isoformat(), reminder.key)
 
     # --- the Confirm gate ---------------------------------------------------------------
 
