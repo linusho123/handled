@@ -30,6 +30,8 @@ IDENTIFY_SECONDS = 5
 HOLD_IT_CLOSER = "Hold it closer"
 # A spoken yes (D7): the whole utterance, nothing more.
 _YES = re.compile(r"^\s*(yes|yeah|yep|yes please|confirm)\s*[.!]?\s*$", re.IGNORECASE)
+# A bare yes to "Is this the 32 oz?" (D8): the affirmation alone, nothing more.
+_BARE_YES = re.compile(r"^\s*(yes|yeah|yep|it is|right|yes it is|that's right|correct)\s*[.!]?\s*$", re.IGNORECASE)
 
 
 @dataclass
@@ -163,16 +165,18 @@ class Desk:
         assert ident is not None
         guess = ident.fields.get("size_guess")
         words = text.strip().lower()
-        if guess and re.match(r"^(yes|yeah|yep|it is|right)\b", words):
-            size = guess
-        else:
-            m = re.search(r"(\d+(?:\.\d+)?)\s*(fl\.?\s*oz|oz|ounces?|ml|l|g|kg|lb|ct|count)?\b", words)
-            if not m:
-                return False
+        # A size the user states wins over the guess (D8: a correction answers the
+        # question); only a bare yes accepts the guess (risk-2).
+        m = re.search(r"(\d+(?:\.\d+)?)\s*(fl\.?\s*oz|oz|ounces?|ml|l|g|kg|lb|ct|count)?\b", words)
+        if m:
             unit = m.group(2) or (str(guess).split(" ", 1)[1] if guess and " " in str(guess) else "oz")
             size = size_text(f"{m.group(1)} {unit}")
             if size is None:
                 return False
+        elif guess and _BARE_YES.match(words):
+            size = guess
+        else:
+            return False
         ident.fields["size"] = size
         ident.fields.pop("size_guess", None)
         ident.variant_question = None

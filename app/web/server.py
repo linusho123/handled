@@ -8,6 +8,7 @@ Confirm gate's one way through (D7); no timer and no clock tick reaches it.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import math
 from contextlib import asynccontextmanager
@@ -20,6 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image, UnidentifiedImageError
 
 from app.desk import Clock, Desk, FakeTexts, VirtualClock
+from app.desk.clock import VirtualTimeLoop
 from app.eye import GeminiEye
 from app.eye.cassette import CassetteMissing
 from app.hands import Hands
@@ -203,6 +205,11 @@ def _test_router(clock: VirtualClock, desk: Desk, hands: Hands, texts: FakeTexts
             raise HTTPException(400, str(err)) from err
         async with desk.lock:
             await desk.tick(clock.now())
+        # head-1: the app's own timers run on the virtual clock too. Outside the lock,
+        # so a timer's callback that takes it runs before the advance answers.
+        loop = asyncio.get_running_loop()
+        if isinstance(loop, VirtualTimeLoop):
+            await loop.advance(seconds)
         return {"now": clock.now().isoformat()}
 
     @t.get("/texts")

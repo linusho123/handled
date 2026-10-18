@@ -20,6 +20,8 @@ export type World = {
   eyeDelay?: number
   /** The letter the card showed before Confirm. */
   letter?: string
+  /** The reason the user gave out loud for contesting (D12). */
+  reason?: string
 }
 
 /** D4, D5: the five-second clock. */

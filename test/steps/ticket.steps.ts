@@ -22,6 +22,7 @@ import {
   show,
   type World,
 } from './desk.ts'
+import { expectContestLetter } from './letter.ts'
 
 /** The reason the user gives out loud (D12), as the cassette recorded it. */
 const REASON = 'the meter was broken, I put in two dollars and it never started'
@@ -79,10 +80,10 @@ async function contestLetter(w: World): Promise<void> {
   const desk = await required(w.app, 'app').desk()
   const letter = desk.letter
   expect(letter, show(desk)).toBeTruthy()
-  expect(letter).not.toMatch(/\n/)
-  expect(letter).toMatch(/\bmeter\b/i)
-  expect(letter).toMatch(/\bbroken\b/i)
-  expect(letter).toMatch(/\btwo dollars\b|\$2(\.00)?\b/i)
+  // head-2: written from the reason, in the driver's voice, naming the citation the card shows.
+  const citation = desk.identified?.fields.citation
+  expect(citation, show(desk)).toBe(citationOf(w))
+  expectContestLetter(letter, required(w.reason, 'reason'), citation!)
   w.letter = letter!
 }
 
@@ -190,7 +191,8 @@ const ticket: Definer<World> = (reg) => {
 
   reg.define(/^the user taps "Contest" and says "([^"]*)"$/, async (w, reason) => {
     await tap(w, 'Contest')
-    await say(w, String(reason))
+    w.reason = String(reason)
+    await say(w, w.reason)
   })
 
   reg.define(/^the user sees on the card a one-paragraph letter that mentions the broken meter and the two dollars$/, async (w) => {
@@ -216,6 +218,7 @@ const ticket: Definer<World> = (reg) => {
   reg.define(/^the browser is paused on the city's contest form with the Confirm control showing$/, async (w) => {
     await pageFilled(w)
     await tap(w, 'Contest')
+    w.reason = REASON
     await say(w, REASON)
     await contestLetter(w)
     await contestForm(w)

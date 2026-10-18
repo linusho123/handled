@@ -2,7 +2,7 @@
 
   python -m app --test [--port N] [--host H]
 
---test runs on a virtual clock with the fake texts, a headless Chromium held
+--test runs on a virtual clock (the event loop's timers too) with the fake texts, a headless Chromium held
 to loopback, the fixture sites under /sites/<site>/ and the /test/* endpoints
 (app/web/server.py), and the eye replaying its cassettes (test/cassettes/).
 The demo mode (real clock, headed browser, real sites, live Gemini and texts)
@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     api = create_app(
         clock=VirtualClock(),
         desk=Desk(),
-        hands=Hands(headless=True),
+        hands=Hands(headless=True, step_timeout_ms=5_000),  # risk-1: no test waits out a long step timeout
         texts=FakeTexts(),
         sites=Sites(),
         test_mode=True,
@@ -53,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
         sitemap=sitemap,
     )
     print(f"handled: listening on http://{args.host}:{args.port} (test mode)", flush=True)
-    uvicorn.run(api, host=args.host, port=args.port, log_level="warning")
+    # head-1: the event loop runs on the virtual clock, so any timer falls due on POST /test/advance.
+    uvicorn.run(api, host=args.host, port=args.port, log_level="warning", loop="app.desk.clock:VirtualTimeLoop")
     return 0
 
 

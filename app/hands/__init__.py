@@ -44,10 +44,16 @@ def _loopback(url: str) -> bool:
         return False
 
 
+# risk-1: the longest any one browser action (a fill, a click, a navigation) may take
+# before its step fails, instead of Playwright's 30 s. Test mode passes a shorter one.
+STEP_TIMEOUT_MS = 15_000
+
+
 class Hands:
-    def __init__(self, headless: bool = True, loopback_only: bool = True) -> None:
+    def __init__(self, headless: bool = True, loopback_only: bool = True, step_timeout_ms: float = STEP_TIMEOUT_MS) -> None:
         self.headless = headless
         self.loopback_only = loopback_only
+        self.step_timeout_ms = step_timeout_ms
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
@@ -63,6 +69,8 @@ class Hands:
     async def _new_context(self) -> None:
         assert self._browser is not None
         self._context = await self._browser.new_context()
+        self._context.set_default_timeout(self.step_timeout_ms)
+        self._context.set_default_navigation_timeout(self.step_timeout_ms)
         if self.loopback_only:
             await self._context.route("**/*", self._hold_to_loopback)
 

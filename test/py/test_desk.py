@@ -131,3 +131,34 @@ def test_a_late_answer_is_refused_even_when_the_clock_jumps_past_it(jump_to):
     _at(desk, jump_to)
     assert desk.card.notice == HOLD_IT_CLOSER
     assert desk.card.identified is None and chore.begun == 0
+
+
+@pytest.mark.parametrize(
+    ("reply", "size"),
+    [
+        ("It is the 5 oz", "5 oz"),
+        ("yes, the 12", "12 oz"),
+        ("yeah, 5 oz", "5 oz"),
+        ("right, the 12 oz one", "12 oz"),
+        ("yes", "32 oz"),
+        ("Yes.", "32 oz"),
+        ("it is", "32 oz"),
+        ("yep", "32 oz"),
+    ],
+)
+def test_risk_2_a_stated_size_wins_over_the_guess_and_only_a_bare_yes_accepts_it(reply, size):
+    product = Identification(kind="product", fields={"name": "Cholula Original Hot Sauce", "size": None, "size_guess": "32 oz"}, variant_question="Is this the 32 oz?")
+    desk, chore = _desk(product)
+    asyncio.run(desk.take_frame(b"x", "image/png", T0))
+    assert asyncio.run(desk.say(reply))
+    assert desk.card.identified["fields"]["size"] == size
+    assert desk.card.question is None and chore.begun == 1
+
+
+@pytest.mark.parametrize("reply", ["yes, but which one is cheaper", "it is hot sauce", "no"])
+def test_risk_2_a_yes_that_says_something_else_does_not_lock_in_the_guess(reply):
+    product = Identification(kind="product", fields={"name": "Cholula Original Hot Sauce", "size": None, "size_guess": "32 oz"}, variant_question="Is this the 32 oz?")
+    desk, chore = _desk(product)
+    asyncio.run(desk.take_frame(b"x", "image/png", T0))
+    assert not asyncio.run(desk.say(reply))
+    assert desk.card.question == "Is this the 32 oz?" and chore.begun == 0

@@ -7,7 +7,9 @@ ProductChore here only open the page their chore starts on (identify.feature,
 D4); the bill chore is P4 and the product chore P3.
 
 A step that fails raises StepFailed: the card names the step, the browser stays
-on the page it reached, and nothing is submitted (D10).
+on the page it reached, and nothing is submitted (D10). A Playwright error inside
+a step (a field that never appears, a navigation that fails) is that step
+failing, under the step's own name (risk-1).
 """
 
 from __future__ import annotations
@@ -44,8 +46,13 @@ class BaseChore:
         self.page: Page | None = None
         self.stopped = False
 
+    @property
+    def begin_step(self) -> str:
+        """The name the card shows when the chore's first step fails."""
+        return "Could not open the page"
+
     async def begin(self) -> None:
-        await self._run(self._begin)
+        await self._run(self.begin_step, self._begin)
 
     async def tap(self, control: str) -> bool:
         return False
@@ -56,10 +63,14 @@ class BaseChore:
     async def _begin(self) -> None:
         raise NotImplementedError
 
-    async def _run(self, step: Any, *args: Any) -> None:
-        """Run a step; a failure stops the chore where it stands."""
+    async def _run(self, name: str, step: Any, *args: Any) -> None:
+        """Run a step; a failure stops the chore where it stands. `name` is what the
+        card shows when the browser itself fails inside the step."""
         try:
-            await step(*args)
+            try:
+                await step(*args)
+            except PlaywrightError as err:
+                raise StepFailed(name, self.page.url if self.page is not None else None) from err
         except StepFailed as failed:
             self.stopped = True
             self.desk.card.controls = []
@@ -77,9 +88,19 @@ class BaseChore:
             response = await self.page.goto(url)
         except PlaywrightError as err:
             raise StepFailed(step) from err
-        if response is None or response.status >= 500 or not (await response.body()).strip():
-            raise StepFailed(step)
+        await self._answered(response, step)
         return self.page
+
+    async def _answered(self, response: Any, step: str) -> None:
+        """A navigation that brought back nothing (no response, a 5xx, an empty page) is a failed step."""
+        if response is None or response.status >= 500 or not (await response.body()).strip():
+            raise StepFailed(step, self.page.url if self.page is not None else None)
+
+
+# The name the card shows when the browser fails inside each ticket step (risk-1).
+PAY_STEP = "Could not fill the card on file on the city's payment page"
+CONTEST_STEP = "Could not open the city's contest form"
+LETTER_STEP = "Could not paste the letter into the city's contest form"
 
 
 class TicketChore(BaseChore):
@@ -91,6 +112,10 @@ class TicketChore(BaseChore):
     @property
     def citation(self) -> str:
         return str(self.fields["citation"])
+
+    @property
+    def begin_step(self) -> str:
+        return f"Could not look up citation {self.fields.get('citation')}"
 
     async def _begin(self) -> None:
         card = self.desk.card
@@ -121,10 +146,10 @@ class TicketChore(BaseChore):
         if self.stopped or control not in self.desk.card.controls:
             return False
         if control == "Pay":
-            await self._run(self._pay)
+            await self._run(PAY_STEP, self._pay)
             return True
         if control == "Contest":
-            await self._run(self._contest)
+            await self._run(CONTEST_STEP, self._contest)
             return True
         return False
 
@@ -132,25 +157,27 @@ class TicketChore(BaseChore):
         if self.stopped:
             return False
         if self.awaiting_reason:
-            await self._run(self._letter, text)
+            await self._run(LETTER_STEP, self._letter, text)
             return True
         words = text.strip()
         if "Pay" in self.desk.card.controls and re.match(r"^pay\b", words, re.IGNORECASE):
-            await self._run(self._pay)
+            await self._run(PAY_STEP, self._pay)
             return True
         m = re.match(r"^contest\b[\s,.:;-]*(.*)$", words, re.IGNORECASE | re.DOTALL)
         if "Contest" in self.desk.card.controls and m:
-            await self._run(self._contest)
+            await self._run(CONTEST_STEP, self._contest)
             if m.group(1).strip() and self.awaiting_reason:
-                await self._run(self._letter, m.group(1))
+                await self._run(LETTER_STEP, self._letter, m.group(1))
             return True
         return False
 
-    async def _follow(self, link: str) -> Page:
+    async def _follow(self, link: str, step: str) -> Page:
+        """Follow a link on the city's page; a page that does not answer is a failed step, and the tab stays."""
         assert self.page is not None
         page = self.page
-        async with page.expect_navigation():
+        async with page.expect_navigation() as navigation:
             await page.click(link)
+        await self._answered(await navigation.value, step)
         await self._no_login(page)
         return page
 
@@ -159,20 +186,21 @@ class TicketChore(BaseChore):
         portal = self.portal
         assert portal is not None
         self.desk.card.controls = []
-        page = await self._follow(portal.pay_link)
+        page = await self._follow(portal.pay_link, "Could not reach the city's payment page")
         await page.fill(portal.card_name, CARD_ON_FILE.name)
         await page.fill(portal.card_number, CARD_ON_FILE.number)
         await page.fill(portal.card_expiry, CARD_ON_FILE.expiry)
         await page.fill(portal.card_cvc, CARD_ON_FILE.cvc)
         self.desk.card.link = page.url
-        self.desk.pause_for_confirm(lambda: self._run(self._submit, portal.pay, f"Paid citation {self.citation}", "The city's page did not take the payment"))
+        refused = "The city's page did not take the payment"
+        self.desk.pause_for_confirm(lambda: self._run(refused, self._submit, portal.pay, f"Paid citation {self.citation}", refused))
 
     async def _contest(self) -> None:
         """D12: the contest form, and the card asks for the reason."""
         portal = self.portal
         assert portal is not None
         self.desk.card.controls = []
-        await self._follow(portal.contest_link)
+        await self._follow(portal.contest_link, "Could not reach the city's contest form")
         self.awaiting_reason = True
         self.desk.card.question = "Why are you contesting it?"
 
@@ -184,7 +212,8 @@ class TicketChore(BaseChore):
         self.desk.card.question = None
         self.desk.card.letter = letter
         await self.page.fill(portal.letter, letter)
-        self.desk.pause_for_confirm(lambda: self._run(self._submit, portal.contest, f"Contest filed for citation {self.citation}", "The city's page did not take the contest"))
+        refused = "The city's page did not take the contest"
+        self.desk.pause_for_confirm(lambda: self._run(refused, self._submit, portal.contest, f"Contest filed for citation {self.citation}", refused))
 
     async def _submit(self, button: Any, done: str, refused: str) -> None:
         """Runs only from Desk.confirm (the Confirm gate); the city's receipt is what says it is done."""
