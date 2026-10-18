@@ -47,6 +47,12 @@ size_visible: for a product, whether its size can be read in this frame. size_gu
 legible: true only when every field listed for that kind can be read with certainty in this frame (for a product: its name; the size may be hidden). Never guess a digit: if any digit of a number or a date is blurred, smeared, too small or cut off, legible is false.
 kind "unknown": anything else, or nothing at all, with fields {}."""
 
+# Live mode only (never recorded, so no cassette changes): what the webcam taught us at the demo
+# integration. Appended to IDENTIFY_PROMPT when the eye answers live.
+LIVE_ADDENDUM = """
+Live webcam notes: the frame may be a phone screen or a print held in a hand; read what is printed, not what the container suggests.
+For a product, read the brand from its logo and the model or product line from the printed text, exactly as printed (e.g. "JBL Clip 4 portable Bluetooth speaker", "Apple AirPods Pro", "Celsius Sparkling Orange energy drink"). Electronics, tools and clothing have no size: size is null and size_visible false unless a size is printed. Never swap the brand for a look-alike; when the logo text is not readable, give the type alone (e.g. "small Bluetooth speaker") and legible false."""
+
 VARIANT_PROMPT = """The image is one webcam frame of {name} held up to a laptop. Its size cannot be fully read: part of the size line is hidden.
 Which size is this most likely? First list the sizes {name} is actually sold in. Then pick the one this frame most likely shows: any characters of the size line that do show (a leading digit, a unit) rule out every size that does not begin with them, and the container's proportions decide among the rest.
 Answer with one JSON object and nothing else: {{"sizes": [string, ...], "likely": string}}, each size written like "12 oz"."""
@@ -221,7 +227,8 @@ class GeminiEye:
         def live() -> str:
             from google.genai import types
 
-            return self._generate([types.Part.from_bytes(data=frame.image, mime_type=frame.content_type), IDENTIFY_PROMPT], json_answer=True)
+            prompt = IDENTIFY_PROMPT if os.environ.get("HANDLED_RECORD") == "1" else IDENTIFY_PROMPT + LIVE_ADDENDUM
+            return self._generate([types.Part.from_bytes(data=frame.image, mime_type=frame.content_type), prompt], json_answer=True)
 
         ident = parse_identification(self.cassette.play("identify", self.identify_request(frame), live))
         if ident.kind == "product" and ident.fields.get("size") is None:

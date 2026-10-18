@@ -140,6 +140,14 @@ def create_app(
 
     if not test_mode:
 
+        @api.get("/last-frame")
+        async def last_frame() -> Response:
+            """Live only: the last webcam frame the desk took, so the operator can test the eye
+            offline against exactly what was held up."""
+            if desk.frame is None:
+                raise HTTPException(404, "no frame yet")
+            return Response(content=desk.frame, media_type="image/jpeg")
+
         @api.post("/start-over")
         async def start_over() -> JSONResponse:
             """Live only: clear the card and close every tab so the next thing can be held up,
