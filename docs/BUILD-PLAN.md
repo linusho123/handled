@@ -96,14 +96,14 @@ Cumulative ≈ 9.5 hours against ~12 remaining at the time of writing. If PD sli
 ## P3 — The product chore
 
 **Builds.** `ProductChore`: the variant question's answer path (the D8 store steps), three store tabs against the fixture stores, prices read from the DOM, the ranked card with ties kept in store order, `not found` per store, no Buy with none found, Buy to cart and checkout with the address and the test Visa, the Confirm gate, the ledger on place-order.
-**Binds.** `product.feature` (every scenario); the held D8 store steps in `identify.feature`.
+**Binds.** `product.feature` (every scenario); the held D8 store steps in `identify.feature`; the held `report.feature` row of 'Every ending is reported on the card and in one text' whose chore is the Cholula ordered from Walmart at $8.98 (added 2026-10-18 after P2).
 **Second reviewer's focus.** The ranking is by the price read from the page, not by a store order or a cassette; a probe that reverses the comparison must flip every row of the D16 outline; a probe that places the order before the gate must turn "Buy goes to checkout … and pauses" red through Walmart's ledger.
 **Gate.** as P1 with its files.
 
 ## P4 — The bill chore
 
 **Builds.** `BillChore`: find the biller's payment page through the `SiteMap` (fixture `ladwp`) and, for an unknown biller, `BrowserUseFinder` (cassette). Browser Use is not installed before this phase (the operator's ruling, 2026-10-18: not until it is necessary); this phase adds `browser-use` to the Python dependencies, records its cassette once against the fixture biller, and if the install or the recording fails in thirty minutes the unknown-biller path is `call to pay` and the fence records the finder as deferred; fill account and amount; the Confirm gate; the three faults with `call to pay` and the printed number.
-**Binds.** `bill.feature` (every scenario).
+**Binds.** `bill.feature` (every scenario); the held `report.feature` row of 'Every ending is reported on the card and in one text' whose chore is the LADWP bill paused at Confirm (added 2026-10-18 after P2).
 **Second reviewer's focus.** The phone number on the card comes from the identification's fields (the bill's own print), never from a lookup; a probe that pays before the gate must turn the first scenario red through the biller's ledger.
 **Gate.** as P1 with its file.
 
