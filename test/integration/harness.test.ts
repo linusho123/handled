@@ -31,6 +31,9 @@ describe('the app in test mode', () => {
       letter: null,
       notice: null,
       failed_step: null,
+      ranking: [],
+      not_found: [],
+      buy: null,
     })
     expect(await app.texts()).toEqual([])
     expect(await app.browser()).toEqual({ url: null, title: null, fields: {}, tabs: [] })

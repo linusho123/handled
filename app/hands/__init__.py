@@ -57,6 +57,7 @@ class Hands:
         self._pw: Playwright | None = None
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
+        self._active: Page | None = None  # the tab in front: the last opened, or the one a chore brought forward
 
     async def start(self) -> None:
         self._pw = await async_playwright().start()
@@ -69,6 +70,7 @@ class Hands:
     async def _new_context(self) -> None:
         assert self._browser is not None
         self._context = await self._browser.new_context()
+        self._active = None
         self._context.set_default_timeout(self.step_timeout_ms)
         self._context.set_default_navigation_timeout(self.step_timeout_ms)
         if self.loopback_only:
@@ -87,6 +89,7 @@ class Hands:
         if self._pw is not None:
             await self._pw.stop()
         self._browser = self._context = self._pw = None
+        self._active = None
 
     async def reset(self) -> None:
         """Every tab closed: a fresh context, so no cookie or page carries over."""
@@ -102,13 +105,21 @@ class Hands:
         """A new tab on url (the chores' first step; P0's unit tests drive it directly)."""
         assert self._context is not None, "the hands are not started"
         page = await self._context.new_page()
+        self._active = page
         await page.goto(url)
         return page
 
     async def new_tab(self) -> Page:
         """A blank tab the user can watch; the chore navigates it."""
         assert self._context is not None, "the hands are not started"
-        return await self._context.new_page()
+        page = await self._context.new_page()
+        self._active = page
+        return page
+
+    async def focus(self, page: Page) -> None:
+        """Bring a tab to the front: the one the user watches (the product chore's store)."""
+        await page.bring_to_front()
+        self._active = page
 
     async def submit_final(self, page: Page, button: FinalSubmit, desk: Any) -> None:
         """Press a form's final submit: the payment, the order, the filing. The only
@@ -118,11 +129,18 @@ class Hands:
             await page.click(button.selector)
 
     async def view(self) -> dict[str, Any]:
-        """What the browser shows, read from Playwright: the active (last opened) tab's
-        url, title and filled fields, and every open tab. No tab: all empty."""
+        """What the browser shows, read from Playwright: the active tab's url, title,
+        filled fields and visible text, and every open tab. The active tab is the one in
+        front: the last opened, unless a chore brought another forward. No tab: all empty."""
         pages = self.pages
         tabs = [{"url": p.url, "title": await p.title()} for p in pages]
         if not pages:
             return {"url": None, "title": None, "fields": {}, "tabs": []}
-        active = pages[-1]
-        return {"url": active.url, "title": await active.title(), "fields": await active.evaluate(_READ_FIELDS), "tabs": tabs}
+        active = self._active if self._active in pages else pages[-1]
+        return {
+            "url": active.url,
+            "title": await active.title(),
+            "fields": await active.evaluate(_READ_FIELDS),
+            "text": await active.evaluate("() => document.body ? document.body.innerText : ''"),
+            "tabs": tabs,
+        }

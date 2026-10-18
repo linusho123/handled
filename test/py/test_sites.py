@@ -147,8 +147,8 @@ def test_biller_faults(sites, client):
 
 @pytest.mark.parametrize("store", ["target", "walmart", "amazon"])
 def test_head_1_a_down_store_answers_nothing(sites, client, store):
-    # head-1: a store page that does not answer is how a product chore ends at a failed
-    # step before P3 (D19, D21): `down` answers every store page with an empty 503.
+    # head-1: a store page that does not answer: `down` answers every store page with an
+    # empty 503, and the product chore marks that store "not found" (D17).
     sites[store].set_prices({"cholula-original-32oz": "8.98"})
     sites[store].set_fault("down")
     for path in ["/", "/search?q=cholula", "/product/cholula-original-32oz", "/cart", "/checkout"]:

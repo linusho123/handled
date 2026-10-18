@@ -4,8 +4,8 @@
 {"file":"features/bill.feature","title":"No reachable payment page means the card shows the number to call [2]","status":"unbound"}
 {"file":"features/bill.feature","title":"No reachable payment page means the card shows the number to call [3]","status":"unbound"}
 {"file":"features/bill.feature","title":"The payment page is filled and paused before paying","status":"unbound"}
-{"file":"features/identify.feature","title":"A product with more than one size is asked about first","status":"unbound"}
-{"file":"features/identify.feature","title":"Correcting the size answers the question","status":"unbound"}
+{"file":"features/identify.feature","title":"A product with more than one size is asked about first","status":"passed"}
+{"file":"features/identify.feature","title":"Correcting the size answers the question","status":"passed"}
 {"file":"features/identify.feature","title":"Each kind is named within five seconds [1]","status":"passed"}
 {"file":"features/identify.feature","title":"Each kind is named within five seconds [2]","status":"passed"}
 {"file":"features/identify.feature","title":"Each kind is named within five seconds [3]","status":"passed"}
@@ -17,20 +17,20 @@
 {"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [2]","status":"passed"}
 {"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [3]","status":"passed"}
 {"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [4]","status":"passed"}
-{"file":"features/product.feature","title":"A store without the product is listed as not found","status":"unbound"}
-{"file":"features/product.feature","title":"Buy goes to checkout with the Visa on file and pauses","status":"unbound"}
-{"file":"features/product.feature","title":"Confirm places the order and the card says so","status":"unbound"}
-{"file":"features/product.feature","title":"No store with the product means no Buy control","status":"unbound"}
-{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [1]","status":"unbound"}
-{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [2]","status":"unbound"}
-{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [3]","status":"unbound"}
-{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [4]","status":"unbound"}
+{"file":"features/product.feature","title":"A store without the product is listed as not found","status":"passed"}
+{"file":"features/product.feature","title":"Buy goes to checkout with the Visa on file and pauses","status":"passed"}
+{"file":"features/product.feature","title":"Confirm places the order and the card says so","status":"passed"}
+{"file":"features/product.feature","title":"No store with the product means no Buy control","status":"passed"}
+{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [1]","status":"passed"}
+{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [2]","status":"passed"}
+{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [3]","status":"passed"}
+{"file":"features/product.feature","title":"Prices from three stores are ranked cheapest first [4]","status":"passed"}
 {"file":"features/report.feature","title":"A product gets no second text","status":"passed"}
 {"file":"features/report.feature","title":"Every ending is reported on the card and in one text [1]","status":"passed"}
 {"file":"features/report.feature","title":"Every ending is reported on the card and in one text [2]","status":"passed"}
 {"file":"features/report.feature","title":"Every ending is reported on the card and in one text [3]","status":"passed"}
 {"file":"features/report.feature","title":"Every ending is reported on the card and in one text [4]","status":"unbound"}
-{"file":"features/report.feature","title":"Every ending is reported on the card and in one text [5]","status":"unbound"}
+{"file":"features/report.feature","title":"Every ending is reported on the card and in one text [5]","status":"passed"}
 {"file":"features/report.feature","title":"The day before a deadline brings a second text [1]","status":"passed"}
 {"file":"features/report.feature","title":"The day before a deadline brings a second text [2]","status":"passed"}
 {"file":"features/report.feature","title":"The day before a deadline brings a second text [3]","status":"passed"}

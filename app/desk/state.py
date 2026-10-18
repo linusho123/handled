@@ -57,6 +57,12 @@ class Card:
     letter: str | None = None  # the contest letter, as pasted into the city's form
     notice: str | None = None  # "Hold it closer"
     failed_step: str | None = None  # the step's name when a chore stops
+    # The product chore (D16, D17): the stores that list the product, cheapest first, each
+    # {"store", "price" ("$8.98", as its page shows it), "link"}; the stores marked "not found",
+    # in store order; and the store the Buy control is on (the cheapest), while it shows.
+    ranking: list[dict[str, str]] = field(default_factory=list)
+    not_found: list[str] = field(default_factory=list)
+    buy: str | None = None
 
     def document(self) -> dict[str, Any]:
         return asdict(self)

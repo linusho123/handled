@@ -29,6 +29,12 @@ export type Desk = {
   letter: string | null
   notice: string | null
   failed_step: string | null
+  /** The product chore: the stores listing it, cheapest first, with the price their page shows. */
+  ranking: { store: string; price: string; link: string }[]
+  /** The stores marked "not found", in store order. */
+  not_found: string[]
+  /** The store the Buy control is on, while it shows. */
+  buy: string | null
 }
 
 /** The browser as the app's Playwright sees it. */
@@ -36,6 +42,8 @@ export type BrowserView = {
   url: string | null
   title: string | null
   fields: Record<string, string>
+  /** The active tab's visible text (absent with no tab open). */
+  text?: string
   tabs: { url: string; title: string }[]
 }
 
@@ -137,7 +145,7 @@ export class App {
     await this.json('POST', '/test/eye', { seconds })
   }
 
-  /** The user taps a control on the card other than Confirm (Pay, Contest), as the page does. */
+  /** The user taps a control on the card other than Confirm (Pay, Contest, Buy), as the page does. */
   tap(control: string): Promise<Response> {
     return this.request('POST', '/tap', { control })
   }
