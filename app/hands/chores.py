@@ -268,6 +268,7 @@ class BillChore(BaseChore):
     def __init__(self, *args: Any) -> None:
         super().__init__(*args)
         self.biller: Biller | None = None
+        self.past_gate = False  # set once Confirm runs Pay now; nothing after it is "call to pay"
 
     @property
     def name(self) -> str:
@@ -282,8 +283,10 @@ class BillChore(BaseChore):
         return f"Could not fill the {self.name} payment page"
 
     def _stopped_at(self, step: str) -> str:
+        # D15: "call to pay" only for a stop before the gate. Once Pay now has been pressed
+        # the chore cannot know nothing was paid: the step and the browser link alone (head-1).
         phone = self.fields.get("phone")  # as the bill prints it (the eye's read)
-        if not phone:
+        if not phone or self.past_gate:
             return step
         self.desk.card.call_to_pay = str(phone)
         return f"{step}: {CALL_TO_PAY} {phone}"
@@ -348,6 +351,7 @@ class BillChore(BaseChore):
     async def _pay(self, refused: str) -> None:
         """Runs only from Desk.confirm (the Confirm gate); the biller's receipt is what says it is paid."""
         assert self.biller is not None and self.page is not None
+        self.past_gate = True
         await self.hands.submit_final(self.page, self.biller.pay, self.desk)
         if await self.page.locator(self.biller.receipt).count() == 0:
             raise StepFailed(refused, self.page.url)

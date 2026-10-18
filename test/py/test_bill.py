@@ -156,6 +156,32 @@ def test_a_payment_the_biller_refuses_is_a_failed_step_never_paid():
         assert await desk.confirm()
         assert sites["ladwp"].ledger == []
         assert desk.card.failed_step == "The LADWP page did not take the payment"
-        assert desk.card.done == f"The LADWP page did not take the payment: call to pay {BILL['phone']}"
+        # head-1: Pay now was pressed, so the card does not say "call to pay"; the step and the link.
+        assert desk.card.done == "The LADWP page did not take the payment"
+        assert desk.card.call_to_pay is None
+        assert desk.card.link == hands.pages[0].url
 
     _run(body)
+
+
+def test_head_1_a_failure_after_pay_now_is_pressed_never_says_call_to_pay():
+    """head-1: once Pay now has posted, the chore cannot know that nothing was paid, so a
+    receipt it cannot find shows the step and the browser link, never "call to pay" (D15
+    covers only stops before the gate)."""
+
+    def no_receipt(sm):
+        biller = sm.billers["ladwp"]
+        sm.billers["ladwp"] = type(biller)(**{**biller.__dict__, "receipt": "#no-such-receipt"})
+
+    async def body(chore, desk, sites, hands, port):
+        await chore.begin()
+        assert await desk.confirm()
+        assert [(e["account"], e["amount"]) for e in sites["ladwp"].ledger] == [("1234567890", "148.22")]
+        assert desk.card.failed_step == "The LADWP page did not take the payment"
+        assert desk.card.call_to_pay is None
+        assert "call to pay" not in desk.card.done
+        assert desk.card.done == "The LADWP page did not take the payment"
+        assert desk.card.link == hands.pages[0].url
+        assert all("call to pay" not in t["body"] for t in desk.texts.sent)
+
+    _run(body, sitemap=no_receipt)
