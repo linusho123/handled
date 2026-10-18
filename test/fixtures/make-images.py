@@ -2,10 +2,11 @@
 
   python test/fixtures/make-images.py <out dir>      (npm run fixtures)
 
-Twelve images with known fields, drawn with Pillow so the printed text is exactly
+Thirteen images with known fields, drawn with Pillow so the printed text is exactly
 the FIXTURES table below (P0 drew six; P1 added the smeared ticket for D5, the
 Cholula bottle with its size hidden for D8, and ticket 4512087734 with no
-printed due date at four issue dates for D13); fields.json beside them records the same table so a
+printed due date at four issue dates for D13; P2 added ticket 4512087735, due
+2026-10-19, for D20); fields.json beside them records the same table so a
 binding can name what each image prints. Deterministic: the same Pillow draws
 the same bytes, so a cassette keyed on the image's hash stays valid.
 """
@@ -64,6 +65,21 @@ FIXTURES: dict[str, dict] = {
         "kind": "product",
         "fields": {"name": "Cholula Original hot sauce", "size": None},
         "note": "the 32 oz bottle with its size line hidden by a hand; the frame does not settle the size",
+    },
+}
+
+# D20: ticket 4512087735 is due 2026-10-19, two days after the virtual clock's start,
+# so its day-before text falls on 2026-10-18.
+FIXTURES["la-ticket-4512087735.png"] = {
+    "kind": "ticket",
+    "fields": {
+        "city": "Los Angeles",
+        "citation": "4512087735",
+        "plate": "8ABC123",
+        "issued": "2026-09-28",
+        "due": "2026-10-19",
+        "amount": "73.00",
+        "violation": "Meter expired",
     },
 }
 
@@ -200,6 +216,7 @@ DRAW = {
     "mug.png": mug,
     "ticket-smeared.png": smeared_ticket,
     "cholula-size-hidden.png": lambda: cholula(size_hidden=True),
+    "la-ticket-4512087735.png": lambda: ticket("la-ticket-4512087735.png"),
     **{f"la-ticket-4512087734-{issued}.png": (lambda n=f"la-ticket-4512087734-{issued}.png": ticket(n)) for issued in NO_DUE_ISSUED},
 }
 

@@ -1,21 +1,39 @@
 """`python -m app`: the eye, the hands and the desk in one process.
 
-  python -m app --test [--port N] [--host H]
+  python -m app --test [--port N] [--host H]      test mode
+  python -m app [--port N] [--host H]             live mode (npm run app)
 
 --test runs on a virtual clock (the event loop's timers too) with the fake texts, a headless Chromium held
 to loopback, the fixture sites under /sites/<site>/ and the /test/* endpoints
 (app/web/server.py), and the eye replaying its cassettes (test/cassettes/).
-The demo mode (real clock, headed browser, real sites, live Gemini and texts)
-arrives with the demo integration (PD); only test mode runs so far.
+
+Live mode (what the demo integration, PD, runs; exercised by hand, never by a
+test): the real clock, live Gemini through the same client (no cassette read,
+required or written; HANDLED_RECORD ignored), a headed Chromium, the sites named
+by HANDLED_SITES (real, the default: the real URLs and selectors in the SiteMap;
+fixtures: the fixture sites served here, the PD fallback), the desk's page
+posting webcam frames to POST /frame, and the texts sent by the first sender
+whose keys are present in the environment (Photon, then Twilio, else the log;
+app/desk/texts.py). Keys come from the environment only: `npm run app` loads
+.env through node's --env-file; the app never opens a key file itself.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+SITES_MODES = ("real", "fixtures")
+
+
+def _fixture_sites():
+    sys.path.insert(0, str(ROOT / "test" / "sites"))
+    from fixture_sites import Sites
+
+    return Sites()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,36 +43,59 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8080, help="port to bind (default 8080)")
     args = parser.parse_args(argv)
 
-    if not args.test:
-        print("python -m app: only --test is built so far (the demo mode is PD)", file=sys.stderr)
-        return 2
-
     import uvicorn
 
-    sys.path.insert(0, str(ROOT / "test" / "sites"))
-    from fixture_sites import Sites
-
-    from app.desk import Desk, FakeTexts, VirtualClock
+    from app.desk import Desk, FakeTexts, RealClock, VirtualClock
+    from app.desk.texts import texts_from_env
     from app.eye import GeminiEye
+    from app.eye.cassette import Cassette
     from app.hands import Hands
     from app.hands.sitemap import SiteMap
     from app.web.server import create_app
 
-    # The fixture sites live on this server; the browser reaches them over loopback.
-    sitemap = SiteMap(f"http://127.0.0.1:{args.port}")
+    sites_mode = os.environ.get("HANDLED_SITES", "fixtures" if args.test else "real")
+    if sites_mode not in SITES_MODES:
+        print(f"python -m app: HANDLED_SITES is {sites_mode!r}; it is one of {', '.join(SITES_MODES)}", file=sys.stderr)
+        return 2
+
+    if args.test:
+        if sites_mode != "fixtures":
+            print("python -m app --test: test mode runs on the fixture sites only (HANDLED_SITES=fixtures)", file=sys.stderr)
+            return 2
+        # The fixture sites live on this server; the browser reaches them over loopback.
+        api = create_app(
+            clock=VirtualClock(),
+            desk=Desk(),
+            hands=Hands(headless=True, step_timeout_ms=5_000),  # risk-1: no test waits out a long step timeout
+            texts=FakeTexts(),
+            sites=_fixture_sites(),
+            test_mode=True,
+            eye=GeminiEye(),
+            sitemap=SiteMap(f"http://127.0.0.1:{args.port}"),
+        )
+        print(f"handled: listening on http://{args.host}:{args.port} (test mode)", flush=True)
+        # head-1: the event loop runs on the virtual clock, so any timer falls due on POST /test/advance.
+        uvicorn.run(api, host=args.host, port=args.port, log_level="warning", loop="app.desk.clock:VirtualTimeLoop")
+        return 0
+
+    if not os.environ.get("GEMINI_API_KEY"):
+        print("python -m app: live mode needs GEMINI_API_KEY in the environment (npm run app loads .env)", file=sys.stderr)
+        return 2
+    fixtures = sites_mode == "fixtures"
+    texts = texts_from_env(os.environ)
+    texts.prepare()  # names the senders configured; Photon looks for the user's first message
     api = create_app(
-        clock=VirtualClock(),
+        clock=RealClock(),
         desk=Desk(),
-        hands=Hands(headless=True, step_timeout_ms=5_000),  # risk-1: no test waits out a long step timeout
-        texts=FakeTexts(),
-        sites=Sites(),
-        test_mode=True,
-        eye=GeminiEye(),
-        sitemap=sitemap,
+        hands=Hands(headless=False, loopback_only=fixtures),
+        texts=texts,
+        sites=_fixture_sites() if fixtures else None,
+        test_mode=False,
+        eye=GeminiEye(Cassette(live=True)),
+        sitemap=SiteMap(f"http://127.0.0.1:{args.port}") if fixtures else SiteMap.real(),
     )
-    print(f"handled: listening on http://{args.host}:{args.port} (test mode)", flush=True)
-    # head-1: the event loop runs on the virtual clock, so any timer falls due on POST /test/advance.
-    uvicorn.run(api, host=args.host, port=args.port, log_level="warning", loop="app.desk.clock:VirtualTimeLoop")
+    print(f"handled: open http://{args.host}:{args.port}/ (live mode, {sites_mode} sites)", flush=True)
+    uvicorn.run(api, host=args.host, port=args.port, log_level="warning")
     return 0
 
 

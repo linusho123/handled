@@ -91,7 +91,7 @@ def _paused(desk):
         desk.require_confirmed()
         ran.append(True)
 
-    desk.pause_for_confirm(step)
+    desk.pause_for_confirm(step, "Ready to pay citation 4512087733, waiting for you")
     return ran
 
 

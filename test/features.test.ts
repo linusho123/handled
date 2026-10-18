@@ -5,6 +5,7 @@ import { afterAll } from 'vitest'
 import { runFeatures, type Definer, type WipEntry } from 'gherkin-node-test/vitest'
 import { closeApp } from './harness/app.ts'
 import identify from './steps/identify.steps.ts'
+import report from './steps/report.steps.ts'
 import ticket from './steps/ticket.steps.ts'
 
 // gherkin-node-test over features/. One definer per feature file joins here as
@@ -22,6 +23,11 @@ const FEATURE_DIR = join(ROOT, 'features')
 // The wip register: features (or scenarios) not yet bound. It only shrinks.
 // P1 bound ticket and identify, but for the two D8 scenarios, whose
 // identification steps are bound and whose store-search steps are P3's.
+// P2 bound report, but for the chore ends built later: the D19 outline's LADWP
+// row (the bill paused at Confirm on its payment page, P4) and Cholula row (the
+// order from Walmart, P3), and D21 (a product chore that ends, P3). The D19
+// outline's three ticket rows run; its two held rows stay unbound at their
+// "the user has held up …" step.
 const WIP: WipEntry[] = [
   'bill', // P4
   {
@@ -29,12 +35,16 @@ const WIP: WipEntry[] = [
     scenarios: ['A product with more than one size is asked about first', 'Correcting the size answers the question'], // P3: the D8 store steps
   },
   'product', // P3
-  'report', // P2
+  {
+    feature: 'report',
+    scenarios: ['Every ending is reported on the card and in one text', 'A product gets no second text'], // P4: the LADWP row; P3: the Cholula row and D21
+  },
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each feature's world type is its own
 const definers: Record<string, Definer<any>> = {
   identify,
+  report,
   ticket,
 }
 

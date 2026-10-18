@@ -96,7 +96,7 @@ def test_the_gate_runs_its_step_only_on_confirm_and_never_on_the_clock():
         desk.require_confirmed()
         ran.append(True)
 
-    desk.pause_for_confirm(step)
+    desk.pause_for_confirm(step, "Ready to pay citation 4512087733, waiting for you")
     assert desk.card.controls == ["Confirm"] and desk.waiting_for_confirm
     for seconds in (60, 3600, 3 * 86400):
         _at(desk, seconds)
@@ -117,7 +117,7 @@ def test_a_step_past_the_gate_refuses_without_confirm():
 
 def test_confirm_is_not_a_tap_control():
     desk, _ = _desk(TICKET)
-    desk.pause_for_confirm(lambda: None)
+    desk.pause_for_confirm(lambda: None, "Ready to pay citation 4512087733, waiting for you")
     assert not asyncio.run(desk.tap("Confirm"))
     assert desk.waiting_for_confirm
 

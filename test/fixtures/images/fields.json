@@ -56,6 +56,18 @@
     },
     "note": "the 32 oz bottle with its size line hidden by a hand; the frame does not settle the size"
   },
+  "la-ticket-4512087735.png": {
+    "kind": "ticket",
+    "fields": {
+      "city": "Los Angeles",
+      "citation": "4512087735",
+      "plate": "8ABC123",
+      "issued": "2026-09-28",
+      "due": "2026-10-19",
+      "amount": "73.00",
+      "violation": "Meter expired"
+    }
+  },
   "la-ticket-4512087734-2026-10-12.png": {
     "kind": "ticket",
     "fields": {

@@ -6,7 +6,9 @@ Its hash is the cassette's name. A cassette holds the request hash and the
 response body (the model's text), nothing else. Replay is the default: a
 request with no cassette raises CassetteMissing, loudly, and never reaches the
 network. HANDLED_RECORD=1 records: a request with no cassette is answered live
-once and written to test/cassettes/.
+once and written to test/cassettes/. Live mode (`python -m app` without --test)
+passes every request straight to the model: no cassette is read, required or
+written, and HANDLED_RECORD is ignored.
 """
 
 from __future__ import annotations
@@ -31,15 +33,19 @@ def request_hash(request: dict[str, Any]) -> str:
 
 
 class Cassette:
-    def __init__(self, directory: Path = CASSETTES, record: bool | None = None) -> None:
+    def __init__(self, directory: Path = CASSETTES, record: bool | None = None, live: bool = False) -> None:
         self.directory = directory
-        self.record = os.environ.get("HANDLED_RECORD") == "1" if record is None else record
+        self.live = live
+        self.record = False if live else os.environ.get("HANDLED_RECORD") == "1" if record is None else record
 
     def path(self, kind: str, request: dict[str, Any]) -> Path:
         return self.directory / f"{kind}-{request_hash(request)[:16]}.json"
 
     def play(self, kind: str, request: dict[str, Any], live: Callable[[], str]) -> str:
-        """The stored response for this request; recorded first under HANDLED_RECORD=1."""
+        """The stored response for this request; recorded first under HANDLED_RECORD=1.
+        Live, the model's answer itself."""
+        if self.live:
+            return live()
         path = self.path(kind, request)
         key = request_hash(request)
         if path.exists():

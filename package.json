@@ -13,7 +13,7 @@
     "docket": "docketry lint features/DOCKET.md --corpus features",
     "docket:strict": "docketry lint features/DOCKET.md --corpus features --strict",
     "manifest": "HANDLED_MANIFEST=1 vitest run --project features && git add run-manifest.ndjson",
-    "app": "node scripts/py.mjs -m app",
+    "app": "node --env-file-if-exists=.env scripts/py.mjs -m app",
     "fixtures": "node scripts/py.mjs test/fixtures/make-images.py test/fixtures/images",
     "setup:py": "uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r pyproject.toml --extra dev && .venv/bin/python -m playwright install chromium"
   },

@@ -4,6 +4,11 @@ and the fixture sites (BUILD-PLAN.md, "Architecture").
 Every /test/* endpoint reports what the app holds; none pre-seeds anything.
 POST /confirm and POST /say ("yes") are the only callers of Desk.confirm, the
 Confirm gate's one way through (D7); no timer and no clock tick reaches it.
+
+The desk's clock moves the desk (Desk.tick: the five seconds, the day-before
+texts) only when something reads it: in test mode POST /test/advance; live, every
+request the desk's page makes (it polls GET /desk twice a second and posts a frame
+every second), so the app itself schedules nothing.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image, UnidentifiedImageError
 
 from app.desk import Clock, Desk, FakeTexts, VirtualClock
+from app.desk.texts import Texts
 from app.desk.clock import VirtualTimeLoop
 from app.eye import GeminiEye
 from app.eye.cassette import CassetteMissing
@@ -73,7 +79,7 @@ def create_app(
     clock: Clock,
     desk: Desk,
     hands: Hands,
-    texts: FakeTexts | None = None,
+    texts: Texts | None = None,
     sites: Any = None,
     test_mode: bool = False,
     eye: Any = None,
@@ -81,6 +87,9 @@ def create_app(
 ) -> FastAPI:
     eye = eye if eye is not None else GeminiEye()
     desk.eye = eye
+    desk.clock = clock
+    if texts is not None:
+        desk.texts = texts
     if sitemap is not None:
         desk.chores = chore_for(hands, sitemap, eye)
 
@@ -93,7 +102,16 @@ def create_app(
             await hands.stop()
 
     api = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-    now = lambda: clock.now().isoformat()  # noqa: E731
+
+    if not test_mode:
+
+        @api.middleware("http")
+        async def tick(request: Request, call_next: Any) -> Any:
+            """Live: each request reads the real clock first, so the five seconds and the
+            day-before texts move with it (in test mode only POST /test/advance moves it)."""
+            async with desk.lock:
+                await desk.tick(clock.now())
+            return await call_next(request)
 
     @api.get("/", response_class=HTMLResponse)
     def index() -> str:
@@ -145,8 +163,10 @@ def create_app(
         return JSONResponse(desk.state())
 
     if test_mode:
-        assert isinstance(clock, VirtualClock) and texts is not None and sites is not None
+        assert isinstance(clock, VirtualClock) and isinstance(texts, FakeTexts) and sites is not None
         api.include_router(_test_router(clock, desk, hands, texts, sites))
+    if sites is not None:
+        # The fixture sites: always in test mode; live only with HANDLED_SITES=fixtures (the PD fallback).
         api.include_router(sites.router())
     return api
 

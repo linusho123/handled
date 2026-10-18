@@ -1,7 +1,9 @@
 """The SiteMap: the URL and the selectors per site (BUILD-PLAN.md, "Architecture").
 
 HANDLED_SITES=fixtures (tests) points at the fixture sites the test server
-hosts under /sites/<site>/; the real pages arrive at the demo integration (PD).
+hosts under /sites/<site>/. HANDLED_SITES=real (live mode's default) reads the
+real pages' URLs and selectors from REAL below; the operator confirms them
+against the live pages at the demo integration (PD) and writes them here.
 A form's final submit (the step that pays, files or orders) is a FinalSubmit:
 only Hands.submit_final presses one, and only after Confirm.
 """
@@ -56,7 +58,58 @@ class Store:
         return self.search_url.format(q=quote_plus(query))
 
 
+# The real sites (HANDLED_SITES=real). Los Angeles pays and contests parking citations
+# through its ETIMS vendor pages. UNCONFIRMED: every selector below is a placeholder
+# until PD reads the live page and writes the real one; a selector that does not
+# match is a failed step on the card (the browser stays), never a guess typed elsewhere.
+REAL = {
+    "la_lookup_url": "https://prodpci.etimspayments.com/pbw/include/los_angeles/input.jsp",
+    "la": {
+        "citation_field": "#citation",  # PD: the citation-number box
+        "plate_field": "#plate",  # PD: the plate box
+        "lookup_button": "#lookup",  # PD: looks the citation up; pays and files nothing
+        "found": "#citation-number",  # PD: present only on the citation's own page
+        "pay_link": "#pay",  # PD
+        "contest_link": "#contest",  # PD
+        "card_name": "#card_name",  # PD
+        "card_number": "#card_number",  # PD
+        "card_expiry": "#card_expiry",  # PD
+        "card_cvc": "#card_cvc",  # PD
+        "amount": "#amount",  # PD
+        "pay": "#submit",  # PD: the final Pay button (FinalSubmit: pressed only after Confirm)
+        "letter": "#letter",  # PD
+        "contest": "#submit",  # PD: the final contest button (FinalSubmit)
+        "receipt": "#receipt",  # PD
+    },
+    "ladwp_pay_url": "https://www.ladwp.com/account/payments",
+    "stores": [
+        ("Target", "https://www.target.com/s?searchTerm={q}"),
+        ("Walmart", "https://www.walmart.com/search?q={q}"),
+        ("Amazon", "https://www.amazon.com/s?k={q}"),
+    ],
+}
+
+
 class SiteMap:
+    @classmethod
+    def real(cls) -> "SiteMap":
+        """The real sites (live mode, HANDLED_SITES=real), from REAL."""
+        sites = cls.__new__(cls)
+        la = REAL["la"]
+        assert isinstance(la, dict)
+        sites.cities = {
+            "los angeles": CityPortal(
+                city="Los Angeles",
+                lookup_url=str(REAL["la_lookup_url"]),
+                **{k: v for k, v in la.items() if k not in ("pay", "contest")},
+                pay=FinalSubmit(la["pay"]),
+                contest=FinalSubmit(la["contest"]),
+            )
+        }
+        sites.billers = {"ladwp": Biller(name="LADWP", pay_url=str(REAL["ladwp_pay_url"]))}
+        sites.stores = [Store(name=name, search_url=url) for name, url in REAL["stores"]]  # type: ignore[misc]
+        return sites
+
     def __init__(self, base_url: str) -> None:
         base = base_url.rstrip("/")
         sites = f"{base}/sites"

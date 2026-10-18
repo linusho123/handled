@@ -6,6 +6,10 @@ file or the contest form with the letter, then the Confirm gate. BillChore and
 ProductChore here only open the page their chore starts on (identify.feature,
 D4); the bill chore is P4 and the product chore P3.
 
+Every chore end is reported (D19): a step that completes after Confirm, a pause
+at Confirm (Desk.pause_for_confirm) and a failed step each call Desk.report once,
+which puts what was done on the card and sends the one text.
+
 A step that fails raises StepFailed: the card names the step, the browser stays
 on the page it reached, and nothing is submitted (D10). A Playwright error inside
 a step (a field that never appears, a navigation that fails) is that step
@@ -20,7 +24,7 @@ from typing import Any
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
 
-from app.desk.deadlines import ticket_deadline
+from app.desk.deadlines import deadline_for
 from app.desk.state import Desk
 from app.desk.wallet import CARD_ON_FILE
 from app.eye import Identification
@@ -76,6 +80,9 @@ class BaseChore:
             self.desk.card.controls = []
             self.desk.card.question = None
             self.desk.card.failed_step = failed.step
+            if self.page is not None:
+                self.desk.card.link = self.page.url
+            self.desk.report(failed.step)  # D19: a failed step is a chore end
         finally:
             if self.page is not None:
                 self.desk.card.link = self.page.url
@@ -119,7 +126,7 @@ class TicketChore(BaseChore):
 
     async def _begin(self) -> None:
         card = self.desk.card
-        card.deadline, card.deadline_note = ticket_deadline(self.fields)
+        card.deadline, card.deadline_note = deadline_for("ticket", self.fields)
         city = self.fields.get("city")
         self.portal = self.sites.city(city)
         if self.portal is None:
@@ -193,7 +200,10 @@ class TicketChore(BaseChore):
         await page.fill(portal.card_cvc, CARD_ON_FILE.cvc)
         self.desk.card.link = page.url
         refused = "The city's page did not take the payment"
-        self.desk.pause_for_confirm(lambda: self._run(refused, self._submit, portal.pay, f"Paid citation {self.citation}", refused))
+        self.desk.pause_for_confirm(
+            lambda: self._run(refused, self._submit, portal.pay, f"Paid citation {self.citation}", refused),
+            f"Ready to pay citation {self.citation}, waiting for you",
+        )
 
     async def _contest(self) -> None:
         """D12: the contest form, and the card asks for the reason."""
@@ -213,7 +223,11 @@ class TicketChore(BaseChore):
         self.desk.card.letter = letter
         await self.page.fill(portal.letter, letter)
         refused = "The city's page did not take the contest"
-        self.desk.pause_for_confirm(lambda: self._run(refused, self._submit, portal.contest, f"Contest filed for citation {self.citation}", refused))
+        self.desk.card.link = self.page.url
+        self.desk.pause_for_confirm(
+            lambda: self._run(refused, self._submit, portal.contest, f"Contest filed for citation {self.citation}", refused),
+            f"Ready to contest citation {self.citation}, waiting for you",
+        )
 
     async def _submit(self, button: Any, done: str, refused: str) -> None:
         """Runs only from Desk.confirm (the Confirm gate); the city's receipt is what says it is done."""
@@ -221,14 +235,15 @@ class TicketChore(BaseChore):
         await self.hands.submit_final(self.page, button, self.desk)
         if await self.page.locator(self.portal.receipt).count() == 0:
             raise StepFailed(refused)
-        self.desk.card.done = done
+        self.desk.card.link = self.page.url
+        self.desk.report(done)  # D19: completed after Confirm
 
 
 class BillChore(BaseChore):
     """P1 opens the biller's payment page (D4); filling and paying it is P4."""
 
     async def _begin(self) -> None:
-        self.desk.card.deadline = self.fields.get("due")
+        self.desk.card.deadline, self.desk.card.deadline_note = deadline_for("bill", self.fields)
         biller = self.sites.biller(self.fields.get("biller"))
         if biller is None:
             raise StepFailed(f"No payment page is known for {self.fields.get('biller')}")

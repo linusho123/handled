@@ -163,7 +163,7 @@ export class App {
   }
 
   /** What the texts fake was asked to send. */
-  texts(): Promise<{ to: string; body: string; at: string }[]> {
+  texts(): Promise<{ to: string; body: string; at: string; key: string | null }[]> {
     return this.json('GET', '/test/texts')
   }
 

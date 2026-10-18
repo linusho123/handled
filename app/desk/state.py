@@ -12,6 +12,13 @@ pauses there (`pause_for_confirm`) with Confirm the only control. The paused
 step runs only from `confirm()`, and `confirm()` is called only by a tap on
 Confirm (POST /confirm) or a spoken yes (POST /say). Nothing else sets
 `confirmed`: no timer, no clock tick, no flag.
+
+The report (D19, D20, D21; app/desk/report.py): every chore end (completed after
+Confirm, paused at Confirm, stopped at a failed step) calls `report(done)`, which
+puts what was done on the card and sends exactly one text through `Texts`; a
+ticket or bill with a deadline also gets one day-before text, held here and sent
+from `tick` when the desk's clock reaches nine in the morning the day before. A
+product gets none. Every time is read on the desk's clock, never the wall.
 """
 
 from __future__ import annotations
@@ -23,6 +30,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
+from app.desk.clock import Clock, VirtualClock
+from app.desk.deadlines import REMINDED_KINDS, reminder_at
+from app.desk.report import Reminder, chore_key, chore_name, event_key, reminder_text, report_text
+from app.desk.texts import FakeTexts, Texts
 from app.eye import Frame, Identification, size_text
 
 # D4, D5: the one clock that decides between the card and "Hold it closer".
@@ -37,7 +48,7 @@ _BARE_YES = re.compile(r"^\s*(yes|yeah|yep|it is|right|yes it is|that's right|co
 @dataclass
 class Card:
     identified: dict[str, Any] | None = None  # {"kind", "fields"}: what the eye read
-    done: str | None = None  # what the chore did ("Paid citation …")
+    done: str | None = None  # what the chore did, set at its end ("Paid citation …", "Ready to pay …, waiting for you", the failed step)
     deadline: str | None = None  # ISO date, or None (products have none)
     deadline_note: str | None = None  # how the deadline was found ("counted 21 days from the issue date")
     link: str | None = None  # the page the browser is on
@@ -73,9 +84,19 @@ class GateClosed(RuntimeError):
 
 
 class Desk:
-    def __init__(self, eye: Eye | None = None, chores: Callable[["Desk", Identification], Chore] | None = None) -> None:
+    def __init__(
+        self,
+        eye: Eye | None = None,
+        chores: Callable[["Desk", Identification], Chore] | None = None,
+        clock: Clock | None = None,
+        texts: Texts | None = None,
+    ) -> None:
         self.eye = eye
         self.chores = chores
+        # The app gives the desk its clock and its texts (create_app); a desk on its own
+        # (a unit test) runs on a virtual clock that stands still and a fake that records.
+        self.clock: Clock = clock if clock is not None else VirtualClock()
+        self.texts: Texts = texts if texts is not None else FakeTexts()
         self.lock = asyncio.Lock()
         self.reset()
 
@@ -89,6 +110,8 @@ class Desk:
         self._attempt: _Attempt | None = None
         self._paused: Callable[[], Awaitable[None]] | None = None
         self.confirmed = False
+        self.reminders: list[Reminder] = []  # the day-before texts waiting on the clock (D20)
+        self._reminded = False  # one day-before text per chore
 
     def state(self) -> dict[str, Any]:
         return self.card.document()
@@ -106,12 +129,18 @@ class Desk:
             if self.eye is None:
                 raise RuntimeError("the desk has no eye")
             answer = self.eye.identify(Frame(image=image, content_type=content_type))
-            self._attempt.pending = (at + timedelta(seconds=self.eye_delay), answer)
-        await self.tick(at)
+            # The answer arrived when the clock says it did: live, a slow eye's own latency
+            # counts against the five seconds; on the virtual clock (which never moves
+            # during a call) the latency set for the scenario does.
+            arrived = max(at + timedelta(seconds=self.eye_delay), self.clock.now())
+            self._attempt.pending = (arrived, answer)
+        await self.tick(max(at, self.clock.now()))
 
     async def tick(self, now: datetime) -> None:
-        """The clock moved: an answer that has arrived within five seconds names the
-        thing; at five seconds with none, "Hold it closer". Nothing else happens here."""
+        """The clock moved: a day-before text that has fallen due goes (D20); an answer
+        that has arrived within five seconds names the thing; at five seconds with none,
+        "Hold it closer". Nothing else happens here."""
+        self._remind(now)
         attempt = self._attempt
         if attempt is None:
             return
@@ -185,14 +214,49 @@ class Desk:
         await self._begin()
         return True
 
+    # --- the report ---------------------------------------------------------------------
+
+    def report(self, done: str) -> None:
+        """A chore has ended (completed, paused at Confirm, or stopped at a failed step):
+        the card says what was done beside what was identified, the deadline and the
+        link, and the phone gets exactly one text with the same and the deadline (D19).
+        A ticket or bill with a deadline is also held for its day-before text (D20)."""
+        card = self.card
+        card.done = done
+        ident = self.identification
+        kind = ident.kind if ident is not None else "unknown"
+        fields = ident.fields if ident is not None else {}
+        chore = chore_key(kind, fields)
+        now = self.clock.now()
+        self.texts.send(report_text(done, card.deadline, card.deadline_note), now.isoformat(), event_key(chore, f"end:{done}"))
+        name = chore_name(kind, fields)
+        if self._reminded or kind not in REMINDED_KINDS or card.deadline is None or name is None:
+            return  # D21: a product has no deadline and gets no second text
+        at = reminder_at(card.deadline)
+        if at <= now:
+            return  # nine the day before has already passed: the end's own text named the deadline
+        self._reminded = True
+        self.reminders.append(Reminder(at=at, body=reminder_text(name, card.deadline), key=event_key(chore, f"reminder:{card.deadline}")))
+
+    def _remind(self, now: datetime) -> None:
+        """Send every day-before text whose time the clock has reached, stamped with the clock's time."""
+        due = sorted((r for r in self.reminders if r.at <= now), key=lambda r: r.at)
+        if not due:
+            return
+        self.reminders = [r for r in self.reminders if r.at > now]
+        for reminder in due:
+            self.texts.send(reminder.body, now.isoformat(), reminder.key)
+
     # --- the Confirm gate ---------------------------------------------------------------
 
-    def pause_for_confirm(self, step: Callable[[], Awaitable[None]]) -> None:
+    def pause_for_confirm(self, step: Callable[[], Awaitable[None]], waiting: str) -> None:
         """A chore stops before its pay, buy or submit step: Confirm is the only control,
-        and the step waits here, for as long as it takes (D6)."""
+        and the step waits here, for as long as it takes (D6). The pause is a chore end:
+        the card and one text say what is waiting (D19)."""
         self._paused = step
         self.confirmed = False
         self.card.controls = ["Confirm"]
+        self.report(waiting)
 
     @property
     def waiting_for_confirm(self) -> bool:

@@ -40,7 +40,7 @@ function render(desk) {
     const f = desk.identified.fields;
     lines.push(desk.identified.kind + ': ' + Object.entries(f).filter(([, v]) => v).map(([k, v]) => k + ' ' + v).join(', '));
   }
-  for (const key of ['notice', 'question', 'letter', 'done', 'failed_step']) if (desk[key]) lines.push(desk[key]);
+  for (const key of ['notice', 'question', 'letter', 'done', 'failed_step']) if (desk[key] && !(key === 'failed_step' && desk[key] === desk.done)) lines.push(desk[key]);
   if (desk.deadline) lines.push('Due ' + desk.deadline + (desk.deadline_note ? ' (' + desk.deadline_note + ')' : ''));
   if (desk.link) lines.push(desk.link);
   for (const line of lines) { const p = document.createElement('p'); p.textContent = line; card.appendChild(p); }

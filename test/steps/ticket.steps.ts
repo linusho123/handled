@@ -56,7 +56,8 @@ async function expectPaymentPage(w: World, amount: string): Promise<void> {
 async function expectConfirmOnly(w: World): Promise<void> {
   const desk = await required(w.app, 'app').desk()
   expect(desk.controls, show(desk)).toEqual(['Confirm'])
-  expect(desk.done).toBeNull()
+  // Paused, the card reports what is waiting (D19), never that it is done.
+  expect(desk.done).toMatch(new RegExp(`^Ready to (pay|contest) citation ${citationOf(w)}, waiting for you$`))
 }
 
 async function tap(w: World, control: string): Promise<void> {

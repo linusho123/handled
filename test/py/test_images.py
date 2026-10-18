@@ -45,3 +45,10 @@ def test_the_p1_fixtures_match_their_scenarios():
     for issued in ("2026-10-12", "2026-10-31", "2026-12-20", "2028-02-10"):
         f = fields[f"la-ticket-4512087734-{issued}.png"]["fields"]
         assert (f["citation"], f["plate"], f["issued"], f["due"], f["amount"]) == ("4512087734", "8ABC123", issued, None, "73.00")
+
+
+def test_the_p2_fixture_matches_its_scenario():
+    # report.feature D20: ticket 4512087735, due 2026-10-19, so its day-before text falls on 2026-10-18.
+    fields = json.loads((IMAGES / "fields.json").read_text())
+    f = fields["la-ticket-4512087735.png"]["fields"]
+    assert (f["city"], f["citation"], f["plate"], f["due"], f["amount"]) == ("Los Angeles", "4512087735", "8ABC123", "2026-10-19", "73.00")

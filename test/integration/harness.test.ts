@@ -65,6 +65,7 @@ describe('the app in test mode', () => {
       'la-ticket-4512087734-2026-10-31.png',
       'la-ticket-4512087734-2026-12-20.png',
       'la-ticket-4512087734-2028-02-10.png',
+      'la-ticket-4512087735.png',
       'la-ticket.png',
       'ladwp-bill.png',
       'mug.png',

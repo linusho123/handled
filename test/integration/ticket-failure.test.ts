@@ -35,7 +35,10 @@ describe('a ticket step that fails after the lookup', () => {
     const desk = await app.desk()
     expect(desk.failed_step, JSON.stringify(desk)).toBe(step)
     expect(desk.controls).toEqual([])
-    expect(desk.done).toBeNull()
+    // The failed step is the chore's end: the card's report names it (D19), and nothing is done.
+    expect(desk.done).toBe(step)
+    const texts = await app.texts()
+    expect(texts.map((t) => t.body)).toEqual([`${step}. Due Nov 2, 2026.`])
     const view = await app.browser()
     expect(view.tabs, JSON.stringify(view)).toHaveLength(1)
     expect(new URL(view.url!).pathname).toBe(path)
