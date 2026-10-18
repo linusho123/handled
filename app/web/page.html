@@ -120,7 +120,7 @@ function render(desk) {
   card.textContent = '';
   if (!desk.identified) {
     const e = el('div', 'empty'); e.appendChild(el('strong', null, desk.notice ? 'Hold it closer' : 'Nothing yet'));
-    e.appendChild(document.createTextNode(desk.notice ? 'Fill the frame, hold still, and keep the light on it.' : 'Hold something up to the webcam. The card names it in a few seconds.'));
+    e.appendChild(document.createTextNode(desk.notice && desk.notice !== 'Hold it closer' ? desk.notice : desk.notice ? 'Fill the frame, hold still, and keep the light on it.' : 'Hold something up to the webcam. The card names it in a few seconds.'));
     card.appendChild(e); card.appendChild(sayForm()); return;
   }
   card.appendChild(el('div', 'kind', KINDS[desk.identified.kind] || desk.identified.kind));
@@ -194,12 +194,31 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 960 } } }).then((stream) => {
     video.srcObject = stream;
     const canvas = document.getElementById('grab');
+    // Frames go to the eye only when something changed in front of the camera, and then at most
+    // one every 1.5 s for the next 4 s (the settled frames after the change), never while a thing
+    // is already named. A still scene costs nothing. Every frame is a vision call, and the free
+    // tier is small.
+    const probe = document.createElement('canvas'); probe.width = 32; probe.height = 24;
+    let lastPixels = null, changedAt = 0, sentAt = 0;
     setInterval(() => {
       if (!video.videoWidth) return;
+      if (window.__desk && window.__desk.identified) return;
+      const pctx = probe.getContext('2d', { willReadFrequently: true });
+      pctx.drawImage(video, 0, 0, 32, 24);
+      const px = pctx.getImageData(0, 0, 32, 24).data;
+      if (lastPixels) {
+        let diff = 0;
+        for (let i = 0; i < px.length; i += 4) diff += Math.abs(px[i] - lastPixels[i]) + Math.abs(px[i + 1] - lastPixels[i + 1]) + Math.abs(px[i + 2] - lastPixels[i + 2]);
+        if (diff / (px.length / 4) > 18) changedAt = Date.now();
+      }
+      lastPixels = px;
+      const now = Date.now();
+      if (now - changedAt > 4000 || now - sentAt < 1500) return;
+      sentAt = now;
       canvas.width = video.videoWidth; canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
       canvas.toBlob((blob) => blob && fetch('/frame', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob }), 'image/jpeg', 0.85);
-    }, 1000);
+    }, 500);
   }).catch(() => { hint.textContent = 'Camera not available: allow it in the browser and reload'; });
 }
 </script>

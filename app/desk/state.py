@@ -38,6 +38,7 @@ from app.eye import Frame, Identification, size_text
 
 # D4, D5: the one clock that decides between the card and "Hold it closer".
 IDENTIFY_SECONDS = 5
+EYE_BUSY = "The eye is busy (rate limit); hold it up again in a few seconds"
 HOLD_IT_CLOSER = "Hold it closer"
 # A spoken yes (D7): the whole utterance, nothing more.
 _YES = re.compile(r"^\s*(yes|yeah|yep|yes please|confirm)\s*[.!]?\s*$", re.IGNORECASE)
@@ -120,6 +121,7 @@ class Desk:
         self.chore: Chore | None = None
         self.chore_id: str | None = None  # this chore instance, in every idempotency key (risk-3)
         self._attempt: _Attempt | None = None
+        self._last_call: datetime | None = None  # live: when the eye was last called
         self._paused: Callable[[], Awaitable[None]] | None = None
         self.confirmed = False
         self.reminders: list[Reminder] = []  # the day-before texts waiting on the clock (D20)
@@ -157,7 +159,18 @@ class Desk:
         if self._attempt.pending is None:
             if self.eye is None:
                 raise RuntimeError("the desk has no eye")
-            answer = self.eye.identify(Frame(image=image, content_type=content_type))
+            if self.live and self._last_call is not None and (at - self._last_call).total_seconds() < 2:
+                return  # live: at most one vision call every two seconds; the next frame will do
+            self._last_call = at
+            try:
+                answer = self.eye.identify(Frame(image=image, content_type=content_type))
+            except Exception as err:  # live: the service refused (rate limit, outage); never a crash
+                if not self.live:
+                    raise
+                self.card.notice = EYE_BUSY
+                self._attempt = None
+                print(f"handled eye: {type(err).__name__}: {str(err).splitlines()[0][:200]}", flush=True)
+                return
             # The answer arrived when the clock says it did: live, a slow eye's own latency
             # counts against the five seconds; on the virtual clock (which never moves
             # during a call) the latency set for the scenario does.

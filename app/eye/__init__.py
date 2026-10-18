@@ -23,7 +23,7 @@ GEMINI_MODEL = "gemini-3.8-flash"
 # Live mode only: when the model answers 503 UNAVAILABLE or 429 (high demand), the next model in this
 # list is tried at once, without waiting (the P1 guard forbids real-time waits in app/). Confirmed
 # against the key's models list at the demo integration, 2026-10-18. Cassettes replay regardless.
-GEMINI_FALLBACKS = ("gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-3.5-flash")
+GEMINI_FALLBACKS = ("gemini-3.1-flash-lite", "gemini-3.5-flash")
 # Live mode's first choice. Timed at the demo integration (2026-10-18, the fixture ticket, JSON answer):
 # gemini-3.8-flash 153 s, 3.7-flash 17 s, 3.5-flash 7 s, 3.5-flash-lite 1.1 s, 3.1-flash-lite 1.4 s.
 # The five-second rule (D4, D5) leaves only the lite models. Cassettes were recorded with GEMINI_MODEL
