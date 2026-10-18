@@ -17,7 +17,7 @@ Everyone has the pile: the parking ticket on the fridge, the bill with a due dat
 ## How we built it
 
 - **Contract first.** A scoping interview produced five Gherkin feature files (50 scenarios), a fence of what is out of scope, a needs ledger and a docket of 38 dated rulings with provenance, signed before any code. The feature files bind the build; a strict lint over the contract gates every phase.
-- **A pipeline of agents built it, phase by phase**, each with a cold builder, two cold reviewers, a head reviewer running mutation probes, one fix round with a failing test first, and a gate. Six phases, every merge green.
+- **A pipeline of agents built it, phase by phase**, each with a cold builder, two cold reviewers, a head reviewer running mutation probes, one fix round with a failing test first, and a gate. Five build phases plus a demo-integration pass, every merge green; the whole build ran between midnight and eight in the morning.
 - **Eye:** Gemini vision (`gemini-3.5-flash-lite` live, about one second a frame) behind record-and-replay cassettes so the test suite never calls a model.
 - **Hands:** Playwright driving a headed Chromium. In tests it drives fixture replicas of the city portal, a biller and three stores, each with a far-side ledger that only a real form post can write to, so "nothing was paid" is asserted against the site, never against the app's own word.
 - **Desk:** the card, the Confirm gate (the only path to any final submit), a clock the tests control, deadlines, texts.
@@ -27,13 +27,13 @@ Everyone has the pile: the parking ticket on the fridge, the bill with a due dat
 ## Challenges
 
 - The real Los Angeles citation pages take a citation number and a CAPTCHA before anything else, and no plate. We read the live forms and wired them; the CAPTCHA became a ruling: the user types it, the agent waits.
-- Target and Walmart refuse automated browsers, so the product demo runs on fixture stores styled after them, declared as fixtures.
+- Target and Walmart refuse automated browsers, so the product demo runs on fixture stores styled after them, declared as fixtures. In demo mode they list whatever the camera names, at a stable made-up price per store, so a judge's own item ranks across three stores.
 - The default Gemini model took over two minutes on a ticket; the lite model takes a second. The five-second rule in the contract made that a hard requirement, not a preference.
 - Photon's edge rejects Python's default User-Agent with a 403. One header.
 
 ## Accomplishments
 
-- A signed behavioral contract and a build whose every scenario is bound far-side and mutation-checked: a timer-driven confirm turns the walk-away scenarios red; a ranking by whole dollars turns the price scenarios red; a letter that merely echoes the user turns the contest scenario red.
+- A signed behavioral contract (38 rulings, then one more after the build) and a build whose every one of the 78 scenarios is bound far-side and mutation-checked: a timer-driven confirm turns the walk-away scenarios red; a ranking by whole dollars turns the price scenarios red; a letter that merely echoes the user turns the contest scenario red.
 - The Confirm gate is provably the only path to a pay, buy or submit.
 
 ## What we learned
@@ -46,7 +46,7 @@ Saved logins for known billers, the real pages after the Los Angeles CAPTCHA (on
 
 ## Built with
 
-Python, FastAPI, Playwright, Gemini, Photon, TypeScript, gherkin-node-test, Vitest, pytest, docketry.
+Python, FastAPI, Playwright, Gemini, Photon, TypeScript, gherkin-node-test, Vitest, pytest, docketry, Pillow.
 
 ## Links
 
@@ -58,4 +58,3 @@ Python, FastAPI, Playwright, Gemini, Photon, TypeScript, gherkin-node-test, Vite
 - Main track: Track 3 (fill in the exact name from the tracks page).
 - Photon: iMessage/WhatsApp/SMS APIs for AI Agents (the agent texts you what it did; you text it once to open the line).
 - Gemini (Google): identification, the variant question and the contest letter.
-- Browser Use: (only if the bill phase installed it; otherwise remove this line.)
