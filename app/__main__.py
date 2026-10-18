@@ -95,13 +95,20 @@ def main(argv: list[str] | None = None) -> int:
             sites[store].open_catalog = True  # the demo: whatever the eye names is listed, at a made-up price
     texts = texts_from_env(os.environ)
     texts.prepare()  # names the senders configured; Photon looks for the user's first message
+    prices = None
+    if os.environ.get("SERPAPI_KEY"):
+        from app.hands.prices import GoogleShoppingPrices
+
+        prices = GoogleShoppingPrices(os.environ["SERPAPI_KEY"])
+        print("handled prices: real listings from Google Shopping (SerpApi); Buy opens the cheapest listing (D40)", flush=True)
     api = create_app(
         clock=RealClock(),
         desk=Desk(live=True),
-        hands=Hands(headless=False, loopback_only=fixtures),
+        hands=Hands(headless=False, loopback_only=fixtures and prices is None),  # real listings leave loopback
         texts=texts,
         sites=sites,
         test_mode=False,
+        prices=prices,
         eye=GeminiEye(Cassette(live=True)),
         sitemap=SiteMap(f"http://127.0.0.1:{args.port}") if fixtures else SiteMap.real(),
     )

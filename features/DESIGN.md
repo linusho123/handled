@@ -30,7 +30,7 @@ The orienting document for the agent that builds Handled, with the human as seco
 
 - Ticket: the issuing city's pay-or-contest page, LADOT for Los Angeles (the pay-by-web lookup and the online initial-review form, each behind a CAPTCHA and taking the citation number only), other cities best effort; citation and plate filled; Pay fills the card on file and pauses; Contest writes a one-paragraph letter from the spoken reason, pastes it, shows it, and pauses. [ruled: D9, D11, D12, D27]
 - Bill: the biller's payment page found, account and amount filled, paused; with no page or a login wall, the phone number printed on the bill and "call to pay". [ruled: D14, D15]
-- Product: a variant question first when the size is unsettled; three stores in tabs; a ranked card; Buy adds to cart, reaches checkout with the shipping address and the Visa on file, and pauses at place-order. [ruled: D8, D16, D17, D18]
+- Product: a variant question first when the size is unsettled; three stores in tabs; a ranked card; Buy adds to cart, reaches checkout with the shipping address and the Visa on file, and pauses at place-order. [ruled: D8, D16, D17, D18] Live, with a shopping search configured, the prices are real listings and Buy opens the cheapest one; the checkout and the pause for products run against the fixture stores only. [ruled: D40]
 
 ## Cut order
 
@@ -56,3 +56,4 @@ When the build runs short: the bill chore first, then the Buy step in favour of 
 - 2026-10-18 — live mode (real clock, live Gemini, headed Chromium, real sites, real texts) assigned to P2 in the build plan so the demo integration phase has something to run; a build-plan scheduling change, no `ruled` or `chosen` line changed.
 - 2026-10-18 — demo integration: D36 (CAPTCHA typed by the user), D37 (real pages after the CAPTCHA deferred; fixture city styled after the real one for Pay and Contest), D38 (live stores deferred; fixture stores for the product demo). The real Los Angeles URLs replace the guessed one in the site map.
 - 2026-10-18 — after the bill phase: the Browser Use finder deferred (D39); the `chosen` hands line says so. Demo integration merged: live mode, the redesigned page, the open demo catalog.
+- 2026-10-18 — D40 (amends D38): real listings from a shopping search in live mode; Buy opens the cheapest listing; product checkout stays on the fixtures. `app/hands/prices.py`, live only.

@@ -27,7 +27,7 @@ Everyone has the pile: the parking ticket on the fridge, the bill with a due dat
 ## Challenges
 
 - The real Los Angeles citation pages take a citation number and a CAPTCHA before anything else, and no plate. We read the live forms and wired them; the CAPTCHA became a ruling: the user types it, the agent waits.
-- Target and Walmart refuse automated browsers, so the product demo runs on fixture stores styled after them, declared as fixtures. In demo mode they list whatever the camera names, at a stable made-up price per store, so a judge's own item ranks across three stores.
+- Target and Walmart refuse automated browsers. So prices are real: a Google Shopping search returns listings from many sellers, the chore keeps the lowest per store and ranks three, and Buy opens the cheapest listing for you. The cart, the checkout with the card on file and the Confirm pause for products run against fixture stores styled after the real ones, declared as fixtures.
 - The default Gemini model took over two minutes on a ticket; the lite model takes a second. The five-second rule in the contract made that a hard requirement, not a preference.
 - Photon's edge rejects Python's default User-Agent with a 403. One header.
 
@@ -46,7 +46,7 @@ Saved logins for known billers, the real pages after the Los Angeles CAPTCHA (on
 
 ## Built with
 
-Python, FastAPI, Playwright, Gemini, Photon, TypeScript, gherkin-node-test, Vitest, pytest, docketry, Pillow.
+Python, FastAPI, Playwright, Gemini, Photon, SerpApi (Google Shopping), TypeScript, gherkin-node-test, Vitest, pytest, docketry, Pillow.
 
 ## Links
 

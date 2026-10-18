@@ -315,3 +315,11 @@ D39 2026-10-18 [V]
   -> fence-deferred browser-use-finder
   serves: N1
   touches: D14 D15 D27
+
+# Demo integration, later (2026-10-18 ~08:40 PDT): the visionary asked for real prices and accepted the trade put to them: with real listings the product's Buy opens the cheapest listing for the user, and the cart, checkout and Confirm pause for products run only against the fixture stores.
+
+D40 2026-10-18 [V] amends D38
+  resp: in live mode with a shopping search configured, the product's prices are real listings from a shopping search (Google Shopping through SerpApi), the lowest per store, three stores ranked cheapest first, each listing opened in its own tab; Buy opens the cheapest listing for the user and the chore ends there, because Target and Walmart refuse automated browsers; the cart, the checkout with the card on file and the Confirm pause for products run only against the three fixture stores, declared as fixtures; without a shopping search configured the product demo runs on the fixture stores as D38 ruled [V]
+  -> fence-deferred live-stores
+  serves: N1 N2
+  touches: D16 D18 D38

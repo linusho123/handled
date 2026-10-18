@@ -430,9 +430,11 @@ class ProductChore(BaseChore):
     the cheapest; Buy adds it to that store's cart, reaches checkout with the address and
     the card on file, and pauses at Place order behind the Confirm gate."""
 
-    def __init__(self, *args: Any) -> None:
+    def __init__(self, *args: Any, prices: Any = None) -> None:
         super().__init__(*args)
         self.offers: list[Offer] = []
+        self.prices = prices  # live mode with a shopping search configured (D40); None in tests
+        self.listings: list[Any] = []
 
     @property
     def product(self) -> str:
@@ -443,6 +445,9 @@ class ProductChore(BaseChore):
         return f"Could not search the stores for {self.fields.get('name')}"
 
     async def _begin(self) -> None:
+        if self.prices is not None:
+            await self._begin_real()
+            return
         name, size = str(self.fields["name"]), str(self.fields["size"])
         query = f"{name} {size}"
         found: list[Offer] = []
@@ -470,6 +475,36 @@ class ProductChore(BaseChore):
         self.page = cheapest.page
         await self.hands.focus(cheapest.page)
         card.buy = cheapest.store.name
+        card.controls = ["Buy"]
+
+    async def _begin_real(self) -> None:
+        """D40 (live): real listings from a shopping search, the lowest per store, each opened in
+        its own tab; the card ranks them and offers Buy, which opens the cheapest for the user."""
+        name, size = str(self.fields["name"]), self.fields.get("size")
+        query = f"{name} {size}" if size else name
+        try:
+            self.listings = self.prices.search(query)
+        except Exception as err:  # the search service, not a page: a failed step, nothing bought
+            raise StepFailed(f"Could not search the stores for {name}") from err
+        card = self.desk.card
+        if not self.listings:
+            raise StepFailed(f"Not found at any store for {name}")
+        first: Page | None = None
+        tabs: list[Page] = []
+        for listing in self.listings:
+            tab = await self.hands.new_tab()
+            first = first or tab
+            tabs.append(tab)
+            try:
+                await tab.goto(listing.link, wait_until="domcontentloaded")
+            except PlaywrightError:
+                pass  # the listing's page may refuse an automated browser; the tab stays, the price stands
+        card.not_found = []
+        card.ranking = [{"store": l.store, "price": l.shown, "link": l.link} for l in self.listings]
+        self.page = tabs[0] if tabs else first
+        if self.page is not None:
+            await self.hands.focus(self.page)
+        card.buy = self.listings[0].store
         card.controls = ["Buy"]
 
     async def _find(self, store: Store, tab: Page, query: str, name: str, size: str) -> Offer | None:
@@ -515,7 +550,19 @@ class ProductChore(BaseChore):
 
     async def _buy(self) -> None:
         """D18: the cheapest store's cart, its checkout with the address and the card on file
-        filled, and the pause before Place order (D7)."""
+        filled, and the pause before Place order (D7). With real listings (D40) Buy opens the
+        cheapest listing for the user and the chore ends there: the checkout is theirs."""
+        if self.prices is not None and self.listings:
+            listing = self.listings[0]
+            card = self.desk.card
+            card.controls = []
+            card.buy = None
+            if self.page is not None:
+                await self.hands.focus(self.page)
+                card.link = self.page.url
+            self.stopped = True
+            self.desk.report(f"Opened the {listing.store} listing, {listing.shown}; the checkout is yours")
+            return
         offer = self.offers[0]
         store = offer.store
         card = self.desk.card
@@ -564,8 +611,10 @@ class ProductChore(BaseChore):
 CHORES = {"ticket": TicketChore, "bill": BillChore, "product": ProductChore}
 
 
-def chore_for(hands: Hands, sites: SiteMap, eye: Any):
+def chore_for(hands: Hands, sites: SiteMap, eye: Any, prices: Any = None):
     def make(desk: Desk, ident: Identification) -> BaseChore:
+        if ident.kind == "product" and prices is not None:
+            return ProductChore(hands, sites, desk, eye, ident, prices=prices)
         return CHORES[ident.kind](hands, sites, desk, eye, ident)
 
     return make

@@ -44,6 +44,7 @@ polling moves the live desk's clock (the five-second rule and the day-before tex
 | `GEMINI_API_KEY` | Identification, the variant question, the contest letter. Required. |
 | `PHOTON_API_KEY`, `PHOTON_PROJECT_ID`, `PHOTON_AGENT_HANDLE` | Texts over iMessage through Photon. Add your phone on the project's iMessage page, take the assigned shared number, and **text it once from your phone first**: a shared line never sends first. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`, `TWILIO_TO` | Texts over SMS when Photon is not configured. |
+| `SERPAPI_KEY` | Real prices for the product chore (Google Shopping through SerpApi): the lowest listing per store, three stores ranked, Buy opens the cheapest listing. Blank: the fixture stores with made-up prices, and Buy reaches a fixture checkout. |
 | `HANDLED_LIVE_MODEL` | Optional. The live vision model; default `gemini-3.5-flash-lite` (about one second a frame). Overloaded models fall through to the next lite model. |
 
 With neither text sender configured, texts go to the app's log.
@@ -61,7 +62,9 @@ fixture stores list whatever the camera names, at a stable made-up price per sto
 2. Say or type `contest, the meter was broken, I put in two dollars`. The letter appears on the
    card and in the city's form; Confirm shows; your phone gets a text. Nobody taps Confirm.
 3. Tap **Start over**. Hold up the product. Three tabs open; the card ranks the stores with
-   Buy on the cheapest. Tap Buy: checkout, paused at Confirm.
+   Buy on the cheapest. With `SERPAPI_KEY` set the prices are real listings and Buy opens the
+   cheapest one for you; without it, the fixture stores price it and Buy reaches a fixture
+   checkout, paused at Confirm.
 4. No camera, or a product the eye cannot name? Type it in the say box while nothing is identified
    (`JBL Clip 4`) and the stores are searched for those words.
 5. Tap **Next** or **Start over** for the next thing. A chore that has ended ignores the camera

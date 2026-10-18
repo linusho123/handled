@@ -81,6 +81,7 @@ def create_app(
     hands: Hands,
     texts: Texts | None = None,
     sites: Any = None,
+    prices: Any = None,
     test_mode: bool = False,
     eye: Any = None,
     sitemap: SiteMap | None = None,
@@ -91,7 +92,7 @@ def create_app(
     if texts is not None:
         desk.texts = texts
     if sitemap is not None:
-        desk.chores = chore_for(hands, sitemap, eye)
+        desk.chores = chore_for(hands, sitemap, eye, prices)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
