@@ -26,7 +26,7 @@ def test_the_desk_starts_empty_and_an_unreadable_frame_identifies_nothing():
     desk = Desk(eye=UnknownEye())
     empty = {
         "identified": None, "done": None, "deadline": None, "deadline_note": None, "link": None, "controls": [],
-        "question": None, "letter": None, "notice": None, "failed_step": None,
+        "question": None, "letter": None, "notice": None, "failed_step": None, "ranking": [], "not_found": [], "buy": None,
     }
     assert desk.state() == empty
     asyncio.run(desk.take_frame(b"\x89PNG", "image/png", datetime(2026, 10, 17)))

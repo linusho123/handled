@@ -127,10 +127,6 @@ export function path(view: BrowserView): string {
   return new URL(view.url).pathname
 }
 
-export function query(view: BrowserView, key: string): string | null {
-  return view.url === null ? null : new URL(view.url).searchParams.get(key)
-}
-
 export const show = (value: unknown) => JSON.stringify(value)
 
 /** The city's records for one citation, as its own routes wrote them. */

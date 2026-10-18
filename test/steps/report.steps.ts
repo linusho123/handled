@@ -10,16 +10,18 @@
 // each text stamped with the app's virtual clock when it was sent. No step waits
 // real time: the clock moves only through POST /test/advance.
 //
-// Held in the wip register (test/features.test.ts): the D19 rows whose chore
-// ends are built later (the LADWP bill paused at Confirm on its payment page,
-// P4; the Cholula order from Walmart, P3). Their distinguishing steps stay
-// unbound. D21 is bound through the product chore's end before P3: its failed
-// step, the first store's page not answering, reported with no deadline.
+// Held in the wip register (test/features.test.ts): the D19 row whose chore end
+// is built later (the LADWP bill paused at Confirm on its payment page, P4). Its
+// distinguishing step stays unbound. The Cholula row is the product chore's order
+// from Walmart after Confirm, the far side Walmart's own ledger (P3). D21 is
+// bound through the product chore's other end: no store lists it (D17), reported
+// with no deadline.
 import { expect } from 'vitest'
 import type { Definer } from 'gherkin-node-test/vitest'
 import { cardWithinFive, holdUp, imageWith, openApp, required, show, type World as DeskWorld } from './desk.ts'
+import { STORES, expectBuyOn, expectCheckout, lists, productChoreBegins, site, storeLedgers, type StoreWorld } from './stores.ts'
 
-type World = DeskWorld & {
+type World = DeskWorld & StoreWorld & {
   /** How the chore is to end (the D19 outline's "ended" column). */
   ending?: string
   /** Texts the phone had received before the end the scenario is about. */
@@ -41,6 +43,8 @@ const DAY = 86400
 const HOUR = 3600
 
 const ENDINGS = ['been confirmed as paid', 'paused at Confirm on the payment page', "stopped because the city's page did not answer"] as const
+/** The product chore's end after Confirm (D18, D7): the order from the cheapest store. */
+const ORDERED = 'ordered'
 
 /** 2026-11-02 → "Nov 2, 2026", the date as the text says it. */
 const human = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
@@ -83,10 +87,36 @@ const report: Definer<World> = (reg) => {
     if (w.ending === ENDINGS[2]) await required(w.app, 'app').setSite('la-citations', { fault: 'down' })
   })
 
+  reg.define(/^the user has held up a (\d+ oz) bottle of ((?:(?! and ).)+)$/, async (w, size, name) => {
+    w.thing = imageWith('product', { name: String(name), size: String(size) })
+  })
+
+  // The store is the cheapest at its price; the other two list it dearer.
+  reg.define(/^the chore has been confirmed as ordered from (Target|Walmart|Amazon) at \$([\d.]+)$/, async (w, store, price) => {
+    w.ending = ORDERED
+    const cents = Math.round(Number(price) * 100)
+    let dearer = 1
+    for (const other of STORES) await lists(w, other, other === store ? String(price) : ((cents + 100 * dearer++) / 100).toFixed(2))
+  })
+
   reg.define(/^the chore ends$/, async (w) => {
     const app = required(w.app, 'app')
     const ending = required(w.ending, 'ending')
     w.textsBefore = (await app.texts()).length
+    if (ending === ORDERED) {
+      const prices = required(w.prices, 'prices')
+      const store = STORES.find((s) => STORES.every((o) => Number(prices[s]) <= Number(prices[o])))!
+      await productChoreBegins(w)
+      await expectBuyOn(w, store)
+      await ok(await app.tap('Buy'))
+      await expectCheckout(w, store)
+      expect((await app.desk()).controls).toEqual(['Confirm'])
+      expect(Object.values(await storeLedgers(w)).flat()).toEqual([])
+      w.textsBefore = (await app.texts()).length
+      await ok(await app.confirm())
+      expect(await app.ledger(site(store))).toHaveLength(1)
+      return
+    }
     if (ending === ENDINGS[2]) {
       await holdUp(w, required(w.thing, 'thing'))
       await cardWithinFive(w)
@@ -110,6 +140,30 @@ const report: Definer<World> = (reg) => {
     const view = await app.browser()
     expect(view.url, show(view)).not.toBeNull()
     expect(desk.link).toBe(view.url)
+  })
+
+  reg.define(/^the user sees a card with (.+), (\d+ oz), "([^"]*)", no deadline and a link to the page the browser is on$/, async (w, name, size, done) => {
+    const app = required(w.app, 'app')
+    const desk = await app.desk()
+    expect(desk.identified?.kind, show(desk)).toBe('product')
+    expect(desk.identified?.fields.name?.toLowerCase()).toBe(String(name).toLowerCase())
+    expect(desk.identified?.fields.size).toBe(String(size))
+    expect(desk.done).toBe(String(done))
+    expect(desk.deadline).toBeNull()
+    const view = await app.browser()
+    expect(view.url, show(view)).not.toBeNull()
+    expect(desk.link).toBe(view.url)
+  })
+
+  reg.define(/^the user's phone receives one text saying "([^"]*)" with no deadline$/, async (w, done) => {
+    const app = required(w.app, 'app')
+    const texts = await app.texts()
+    const fresh = texts.slice(required(w.textsBefore, 'textsBefore'))
+    expect(fresh, show(texts)).toHaveLength(1)
+    expect(fresh[0]!.body).toContain(String(done))
+    expect(fresh[0]!.body).toContain('No deadline')
+    expect(fresh[0]!.body).not.toMatch(/\bDue\b/)
+    expect(fresh[0]!.at).toBe(app.now)
   })
 
   reg.define(/^the user's phone receives one text saying "([^"]*)" with (\d{4}-\d{2}-\d{2})$/, async (w, done, deadline) => {
@@ -182,9 +236,9 @@ const report: Definer<World> = (reg) => {
 
   reg.define(/^the user has held up a (\d+ oz) bottle of (.+) and the chore was reported with no deadline$/, async (w, size, name) => {
     const app = required(w.app, 'app')
-    // The product chore's end before P3 is its failed step: the first store's page does
-    // not answer. D19 reports it on the card and in one text, with no deadline.
-    await app.setSite('target', { fault: 'down' })
+    // The product chore ends with no store listing it (D17): D19 reports it on the card
+    // and in one text, with no deadline.
+    for (const store of STORES) await app.setSite(site(store), { fault: 'nolisting' })
     w.thing = imageWith('product', { name: String(name), size: String(size) })
     await holdUp(w, w.thing)
     await cardWithinFive(w)
@@ -192,12 +246,12 @@ const report: Definer<World> = (reg) => {
     expect(desk.identified?.kind, show(desk)).toBe('product')
     expect(desk.identified?.fields.name?.toLowerCase()).toBe(String(name).toLowerCase())
     expect(desk.identified?.fields.size?.toLowerCase()).toBe(String(size).toLowerCase())
-    expect(desk.failed_step, show(desk)).toBe('Could not reach Target')
-    expect(desk.done).toBe('Could not reach Target')
+    expect(desk.failed_step, show(desk)).toBe('Not found at Target, Walmart or Amazon')
+    expect(desk.done).toBe('Not found at Target, Walmart or Amazon')
     expect(desk.deadline).toBeNull()
     const texts = await app.texts()
     expect(texts, show(texts)).toHaveLength(1)
-    expect(texts[0]!.body).toContain('Could not reach Target')
+    expect(texts[0]!.body).toContain('Not found at Target, Walmart or Amazon')
     expect(texts[0]!.body).toContain('No deadline')
     expect(texts[0]!.at).toBe(app.now)
     w.firstText = { body: texts[0]!.body, at: texts[0]!.at }

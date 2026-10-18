@@ -53,8 +53,26 @@ class Biller:
 
 @dataclass(frozen=True)
 class Store:
+    """A store front (D16, D18): its search, the product page's price, the cart and the
+    checkout. The selectors default to the fixture stores' (test/sites/fixture_sites/stores.py)."""
+
     name: str
     search_url: str  # with {q}
+    result: str = ".result a"  # a search result's link to its product page
+    price: str = "#price"  # the price the product page shows
+    add_to_cart: str = "#add-to-cart"  # puts the product in the cart; buys nothing
+    checkout_link: str = "#checkout"  # from the cart to the checkout page
+    cart_item: str = ".cart-item"  # an item the checkout page lists
+    ship_name: str = "#ship_name"
+    ship_street: str = "#ship_street"
+    ship_city: str = "#ship_city"
+    ship_state: str = "#ship_state"
+    ship_zip: str = "#ship_zip"
+    card_number: str = "#card_number"
+    card_expiry: str = "#card_expiry"
+    card_cvc: str = "#card_cvc"
+    place: FinalSubmit = FinalSubmit("#place-order")  # Place order: pressed only after Confirm
+    receipt: str = "#receipt"  # present only once the store has taken the order
 
     def search(self, query: str) -> str:
         return self.search_url.format(q=quote_plus(query))
@@ -90,6 +108,8 @@ REAL = {
         "receipt": "text=/confirmation/i",  # UNCONFIRMED (D37)
     },
     "ladwp_pay_url": "https://www.ladwp.com/account/payments",
+    # PD: the stores' search URLs; every other store selector is the fixture default
+    # (Store above) until PD reads each live page and writes the real ones here.
     "stores": [
         ("Target", "https://www.target.com/s?searchTerm={q}"),
         ("Walmart", "https://www.walmart.com/search?q={q}"),

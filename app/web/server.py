@@ -140,7 +140,7 @@ def create_app(
 
     @api.post("/tap")
     async def tap(request: Request) -> JSONResponse:
-        """A tap on a card control other than Confirm (Pay, Contest)."""
+        """A tap on a card control other than Confirm (Pay, Contest, Buy)."""
         control = (await _json(request)).get("control")
         if not isinstance(control, str):
             raise HTTPException(400, "control is the name of a control on the card")

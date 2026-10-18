@@ -1,10 +1,14 @@
 // features/identify.feature: the thing held up is named within five seconds and
 // its chore begins in a visible browser (D4); what cannot be read gets "Hold it
-// closer" and no chore (D5); one clock decides between them. The D8 scenarios'
-// identification steps are bound here; their store-search steps are P3's and
-// those two scenarios stay in the wip register until then.
+// closer" and no chore (D5); one clock decides between them; a product whose
+// size the frame does not settle is asked about before any store is searched,
+// and the answer is what the first store is searched for (D8).
+//
+// A product's chore opens one tab per store (D16), Target first; no store lists
+// anything here (no prices are set), so each tab stays on its search results.
 import { expect } from 'vitest'
 import type { Definer } from 'gherkin-node-test/vitest'
+import type { BrowserView } from '../harness/app.ts'
 import {
   FIXTURES,
   IDENTIFY_SECONDS,
@@ -15,7 +19,6 @@ import {
   imageWith,
   openApp,
   path,
-  query,
   required,
   show,
   sinceHeld,
@@ -45,8 +48,12 @@ function expectFields(kind: string, named: string, fields: Record<string, string
 async function expectBrowserOn(w: World, page: string): Promise<void> {
   const app = required(w.app, 'app')
   const view = await app.browser()
-  expect(view.tabs, show(view)).toHaveLength(1)
   const thing = FIXTURES[required(w.thing, 'thing')]!
+  if (page === "the first store's search results") {
+    expectFirstStoreSearched(view, String(thing.fields.name), String(thing.fields.size))
+    return
+  }
+  expect(view.tabs, show(view)).toHaveLength(1)
   if (page === 'the Los Angeles pay-or-contest page') {
     expect(path(view)).toBe('/sites/la-citations/lookup')
     expect(view.title).toBe(`City of Los Angeles - Parking Citations - Citation ${thing.fields.citation}`)
@@ -54,14 +61,22 @@ async function expectBrowserOn(w: World, page: string): Promise<void> {
   } else if (page === 'the LADWP payment page') {
     expect(path(view)).toBe('/sites/ladwp/pay')
     expect(view.title).toMatch(/^LADWP\b.*Pay/i)
-  } else if (page === "the first store's search results") {
-    expect(path(view)).toBe('/sites/target/search')
-    expect(view.title).toMatch(/^Target - Search: /)
-    const q = (query(view, 'q') ?? '').toLowerCase()
-    for (const word of [...String(thing.fields.name).toLowerCase().split(/\s+/), String(thing.fields.size).toLowerCase()]) expect(q).toContain(word)
   } else {
     throw new Error(`no page "${page}"`)
   }
+}
+
+/** The first store's tab (Target's, D16's store order) on its search results for the product, and in front. */
+function expectFirstStoreSearched(view: BrowserView, name: string, size: string): void {
+  const first = view.tabs[0]
+  expect(first, show(view)).toBeDefined()
+  const url = new URL(first!.url)
+  expect(url.pathname, show(view)).toBe('/sites/target/search')
+  expect(first!.title).toMatch(/^Target - Search: /)
+  const words = (url.searchParams.get('q') ?? '').toLowerCase().split(/\s+/)
+  for (const word of [...name.toLowerCase().split(/\s+/), ...size.toLowerCase().split(/\s+/)]) expect(words, show(view)).toContain(word)
+  for (const other of ['12', '32'].filter((n) => !size.startsWith(n))) expect(words, show(view)).not.toContain(other)
+  expect(view.url).toBe(first!.url)
 }
 
 async function expectNoBrowser(w: World): Promise<void> {
@@ -123,7 +138,7 @@ const identify: Definer<World> = (reg) => {
     await required(w.app, 'app').eyeDelay(w.eyeDelay)
   })
 
-  // D8, identification steps (their scenarios' store steps are P3's).
+  // --- D8 ---------------------------------------------------------------------------
   const hidden = () => imageWith('product', { name: 'Cholula Original hot sauce', size: null })
 
   reg.define(/^the user holds a bottle of Cholula Original hot sauce up to the webcam with its size hidden by their hand$/, async (w) => {
@@ -144,6 +159,28 @@ const identify: Definer<World> = (reg) => {
   reg.define(/^the user says "([^"]*)"$/, async (w, text) => {
     const res = await required(w.app, 'app').say(String(text))
     expect(res.status, await res.clone().text()).toBe(200)
+  })
+
+  // No tab opens while the question waits, however long; the answer opens the stores,
+  // the first searched for the size the frame suggested.
+  reg.define(/^the user sees no store searched until they answer$/, async (w) => {
+    const app = required(w.app, 'app')
+    await expectNoBrowser(w)
+    await app.advance(600)
+    await expectNoBrowser(w)
+    const desk = await app.desk()
+    expect(desk.question, show(desk)).toBe('Is this the 32 oz?')
+    expect(desk.ranking).toEqual([])
+    expect(desk.not_found).toEqual([])
+    const res = await app.say('yes')
+    expect(res.status, await res.clone().text()).toBe(200)
+    expectFirstStoreSearched(await app.browser(), String(desk.identified?.fields.name), '32 oz')
+  })
+
+  reg.define(/^the user sees the first store searched for the (\d+ oz) bottle$/, async (w, size) => {
+    const app = required(w.app, 'app')
+    const desk = await app.desk()
+    expectFirstStoreSearched(await app.browser(), String(desk.identified?.fields.name), String(size))
   })
 
   reg.define(/^the user sees the card name the product as "([^"]*), (\d+ oz)"$/, async (w, name, size) => {

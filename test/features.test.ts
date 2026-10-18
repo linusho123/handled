@@ -5,6 +5,7 @@ import { afterAll } from 'vitest'
 import { runFeatures, type Definer, type WipEntry } from 'gherkin-node-test/vitest'
 import { closeApp } from './harness/app.ts'
 import identify from './steps/identify.steps.ts'
+import product from './steps/product.steps.ts'
 import report from './steps/report.steps.ts'
 import ticket from './steps/ticket.steps.ts'
 
@@ -21,29 +22,23 @@ const ROOT = resolve(import.meta.dirname, '..')
 const FEATURE_DIR = join(ROOT, 'features')
 
 // The wip register: features (or scenarios) not yet bound. It only shrinks.
-// P1 bound ticket and identify, but for the two D8 scenarios, whose
-// identification steps are bound and whose store-search steps are P3's.
-// P2 bound report, but for the chore ends built later: the D19 outline's LADWP
-// row (the bill paused at Confirm on its payment page, P4) and Cholula row (the
-// order from Walmart, P3). The D19 outline's three ticket rows run; its two held
-// rows stay unbound at their "the user has held up …" step. D21 runs, through
-// the product chore's failed-step end.
+// P1 bound ticket and identify; P3 bound the two D8 scenarios' store steps and
+// product. P2 bound report, but for the chore ends built later: the D19
+// outline's LADWP row (the bill paused at Confirm on its payment page, P4) stays
+// unbound at its "the user has held up …" step; its Cholula row (the order from
+// Walmart) is bound by P3 and runs with the three ticket rows.
 const WIP: WipEntry[] = [
   'bill', // P4
   {
-    feature: 'identify',
-    scenarios: ['A product with more than one size is asked about first', 'Correcting the size answers the question'], // P3: the D8 store steps
-  },
-  'product', // P3
-  {
     feature: 'report',
-    scenarios: ['Every ending is reported on the card and in one text'], // P4: the LADWP row; P3: the Cholula row
+    scenarios: ['Every ending is reported on the card and in one text'], // P4: the LADWP row
   },
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each feature's world type is its own
 const definers: Record<string, Definer<any>> = {
   identify,
+  product,
   report,
   ticket,
 }
