@@ -35,6 +35,16 @@ class Listing:
     title: str
 
 
+_GENERIC = frozenset({"portable", "bluetooth", "wireless", "speaker", "speakers", "the", "and", "with", "for", "of", "a", "an", "new", "pack", "oz", "fl", "ml", "count", "ct", "original", "edition", "black", "white", "blue", "red", "pro", "plus", "max", "mini", "gen", "generation", "2nd", "3rd", "usb", "c", "cable", "charger", "case"})
+
+
+def _tokens(text: str) -> frozenset[str]:
+    """The words that name a product: letters-and-digits tokens, minus generic ones. A listing
+    must carry every one of the query's to count (so "Flip 4" never stands in for "Clip 4")."""
+    words = re.findall(r"[a-z0-9]+", text.lower())
+    return frozenset(w for w in words if w not in _GENERIC and (len(w) > 1 or w.isdigit()))
+
+
 class GoogleShoppingPrices:
     name = "google-shopping"
 
@@ -52,9 +62,14 @@ class GoogleShoppingPrices:
         retail: dict[str, Listing] = {}  # known retailers, new items
         shops: dict[str, Listing] = {}  # other named shops, new items
         other: dict[str, Listing] = {}  # marketplaces, used items, bare-domain sellers
+        several: Listing | None = None  # Google's own aggregated entry: the product at several stores, "from $x"
+        wanted = _tokens(query)
         for item in data.get("shopping_results") or []:
             if not isinstance(item, dict):
                 continue
+            title = str(item.get("title") or "")
+            if wanted and not wanted <= _tokens(title):
+                continue  # a look-alike (Flip 4 for Clip 4, a case, a bundle of something else)
             source = str(item.get("source") or "").strip()
             store = source.split(" - ")[0].strip()  # "eBay - someseller" is eBay
             raw = item.get("extracted_price")
@@ -62,15 +77,26 @@ class GoogleShoppingPrices:
                 price = Decimal(str(raw))
             except (InvalidOperation, TypeError, ValueError):
                 continue
-            if not store or price <= 0:
+            if price <= 0:
                 continue
-            title = str(item.get("title") or "")
+            if not store:
+                if item.get("multiple_sources") or str(item.get("price") or "").endswith("+"):
+                    # The product at several stores; Google shows the lowest. The link is the
+                    # shopping search for it, where the stores are listed.
+                    link = "https://www.google.com/search?tbm=shop&q=" + urllib.parse.quote_plus(title)
+                    candidate = Listing(store="Several stores", price=price, shown=f"from ${price.quantize(Decimal('0.01'))}", link=link, title=title)
+                    if several is None or candidate.price < several.price:
+                        several = candidate
+                continue
             tags = " ".join(str(x) for x in (item.get("extensions") or [])) + " " + title + " " + str(item.get("second_hand_condition") or "")
             link = str(item.get("product_link") or item.get("link") or "")
             listing = Listing(store=store, price=price, shown=f"${price.quantize(Decimal('0.01'))}", link=link, title=title)
             key = store.lower()
             if key in MARKETPLACES or _USED.search(tags) or (key not in RETAILERS and _DOMAINISH.search(key)):
                 bucket = other
+                if _USED.search(tags) or str(item.get("second_hand_condition") or ""):
+                    listing = Listing(store=f"{store} (used)", price=price, shown=listing.shown, link=link, title=title)
+                    store = listing.store
             elif key in RETAILERS:
                 bucket = retail
             else:
@@ -80,6 +106,8 @@ class GoogleShoppingPrices:
         # Known retailers' new items first, then other named shops, then marketplaces and used
         # listings, each tier cheapest first, until three stores are named.
         ranked: list[Listing] = []
+        if several is not None:
+            ranked.append(several)
         for tier in (retail, shops, other):
             if len(ranked) >= stores:
                 break

@@ -22,6 +22,8 @@ failing, under the step's own name (risk-1).
 
 from __future__ import annotations
 
+import asyncio
+
 import sys
 
 import re
@@ -483,7 +485,9 @@ class ProductChore(BaseChore):
         name, size = str(self.fields["name"]), self.fields.get("size")
         query = f"{name} {size}" if size else name
         try:
-            self.listings = self.prices.search(query)
+            # Off the event loop: the search is a network call of a few seconds, and the page's polls
+            # and the other requests must keep answering meanwhile.
+            self.listings = await asyncio.get_running_loop().run_in_executor(None, self.prices.search, query)
         except Exception as err:  # the search service, not a page: a failed step, nothing bought
             raise StepFailed(f"Could not search the stores for {name}") from err
         card = self.desk.card
