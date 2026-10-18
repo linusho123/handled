@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from PIL import Image, UnidentifiedImageError
 
 from app.desk import Clock, Desk, FakeTexts, VirtualClock
@@ -108,9 +108,14 @@ def create_app(
         @api.middleware("http")
         async def tick(request: Request, call_next: Any) -> Any:
             """Live: each request reads the real clock first, so the five seconds and the
-            day-before texts move with it (in test mode only POST /test/advance moves it)."""
-            async with desk.lock:
-                await desk.tick(clock.now())
+            day-before texts move with it (in test mode only POST /test/advance moves it).
+            Not for the fixture sites' own pages, and never while a chore holds the desk:
+            the chore's browser fetches those pages from this same server while /frame holds
+            the lock, and waiting here would deadlock until the navigation timed out (seen at
+            the demo integration, 2026-10-18). The next poll of /desk ticks instead."""
+            if not request.url.path.startswith("/sites/") and not desk.lock.locked():
+                async with desk.lock:
+                    await desk.tick(clock.now())
             return await call_next(request)
 
     @api.get("/", response_class=HTMLResponse)
@@ -133,6 +138,25 @@ def create_app(
                 return JSONResponse({"error": "nothing is waiting for Confirm"}, status_code=409)
         return JSONResponse(desk.state())
 
+    if not test_mode:
+
+        @api.get("/last-frame")
+        async def last_frame() -> Response:
+            """Live only: the last webcam frame the desk took, so the operator can test the eye
+            offline against exactly what was held up."""
+            if desk.frame is None:
+                raise HTTPException(404, "no frame yet")
+            return Response(content=desk.frame, media_type="image/jpeg")
+
+        @api.post("/start-over")
+        async def start_over() -> JSONResponse:
+            """Live only: clear the card and close every tab so the next thing can be held up,
+            at any point, paused included. Nothing is confirmed or submitted by it."""
+            async with desk.lock:
+                desk.start_over()
+                await hands.reset()
+            return JSONResponse(desk.state())
+
     @api.post("/tap")
     async def tap(request: Request) -> JSONResponse:
         """A tap on a card control other than Confirm (Pay, Contest, Buy)."""
@@ -144,6 +168,8 @@ def create_app(
         async with desk.lock:
             if not await desk.tap(control):
                 return JSONResponse({"error": f"the card does not offer {control!r}"}, status_code=409)
+            if control == "Next":
+                await hands.reset()  # the ended chore's tabs close with it
         return JSONResponse(desk.state())
 
     @api.post("/say")

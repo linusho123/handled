@@ -82,14 +82,25 @@ def main(argv: list[str] | None = None) -> int:
         print("python -m app: live mode needs GEMINI_API_KEY in the environment (npm run app loads .env)", file=sys.stderr)
         return 2
     fixtures = sites_mode == "fixtures"
+    sites = _fixture_sites() if fixtures else None
+    if sites is not None:
+        # The demo on the fixture stores (D38): the catalog's prices, which a test sets per scenario
+        # and live mode must seed itself. Walmart cheapest, so Buy lands there as the demo script says.
+        for store, prices in (
+            ("target", {"cholula-original-32oz": "9.49", "cholula-original-12oz": "4.29"}),
+            ("walmart", {"cholula-original-32oz": "8.98", "cholula-original-12oz": "3.98"}),
+            ("amazon", {"cholula-original-32oz": "10.99", "cholula-original-12oz": "4.99"}),
+        ):
+            sites[store].set_prices(prices)
+            sites[store].open_catalog = True  # the demo: whatever the eye names is listed, at a made-up price
     texts = texts_from_env(os.environ)
     texts.prepare()  # names the senders configured; Photon looks for the user's first message
     api = create_app(
         clock=RealClock(),
-        desk=Desk(),
+        desk=Desk(live=True),
         hands=Hands(headless=False, loopback_only=fixtures),
         texts=texts,
-        sites=_fixture_sites() if fixtures else None,
+        sites=sites,
         test_mode=False,
         eye=GeminiEye(Cassette(live=True)),
         sitemap=SiteMap(f"http://127.0.0.1:{args.port}") if fixtures else SiteMap.real(),

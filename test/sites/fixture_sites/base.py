@@ -11,10 +11,29 @@ class SiteError(ValueError):
     pass
 
 
-def page(title: str, body: str, status: int = 200) -> HTMLResponse:
+# The look of a fixture page. A site may pass a brand header (the city's, a store's) so the
+# demo's browser reads like the real page; every styled page says it is a fixture in its footer.
+STYLE = (
+    "<style>body{margin:0;font:16px/1.5 -apple-system,Helvetica,Arial,sans-serif;color:#1f2a37;background:#f4f6f9}"
+    ".brand{background:var(--brand,#0b3d91);color:#fff;padding:14px 28px;font-size:22px;font-weight:600;letter-spacing:.2px}"
+    ".brand small{display:block;font-size:13px;font-weight:400;opacity:.85}"
+    "main{max-width:760px;margin:28px auto;background:#fff;padding:28px 32px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.08)}"
+    "h1{font-size:22px;margin:0 0 18px}label{display:block;margin:10px 0 4px}input,textarea{font:inherit;padding:8px;border:1px solid #c6ccd4;border-radius:4px;width:100%;max-width:420px}"
+    "button,a.button{display:inline-block;margin:14px 8px 0 0;padding:10px 18px;background:var(--brand,#0b3d91);color:#fff;border:0;border-radius:4px;font:inherit;text-decoration:none;cursor:pointer}"
+    "dl{display:grid;grid-template-columns:160px 1fr;gap:6px 12px}dt{color:#5b6472}.error{color:#b00020}"
+    "footer{max-width:760px;margin:0 auto 28px;color:#7a8290;font-size:13px;padding:0 32px}</style>"
+)
+
+
+def page(title: str, body: str, status: int = 200, brand: str = "", color: str = "") -> HTMLResponse:
+    """A fixture page. `brand` adds a header bar styled after the real site (demo); the footer
+    says it is a fixture either way, so nobody mistakes it for the real page."""
+    style = f" style='--brand:{html.escape(color)}'" if color else ""
+    header = f"<div class='brand'{style}>{brand}</div>" if brand else ""
+    footer = "<footer>Handled fixture site: a replica for tests and the demo, not the real page.</footer>" if brand else ""
     return HTMLResponse(
-        f"<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title></head>"
-        f"<body><h1>{html.escape(title)}</h1>{body}</body></html>",
+        f"<!doctype html><html><head><meta charset='utf-8'><title>{html.escape(title)}</title>{STYLE}</head>"
+        f"<body>{header}<main><h1>{html.escape(title)}</h1>{body}</main>{footer}</body></html>",
         status_code=status,
     )
 

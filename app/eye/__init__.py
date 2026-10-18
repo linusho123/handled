@@ -20,6 +20,16 @@ from app.eye.cassette import Cassette, CassetteMissing
 # The Gemini model the eye calls, confirmed against the models list when the
 # cassettes were recorded (scripts/record-cassettes.py, 2026-10-18).
 GEMINI_MODEL = "gemini-3.8-flash"
+# Live mode only: when the model answers 503 UNAVAILABLE or 429 (high demand), the next model in this
+# list is tried at once, without waiting (the P1 guard forbids real-time waits in app/). Confirmed
+# against the key's models list at the demo integration, 2026-10-18. Cassettes replay regardless.
+GEMINI_FALLBACKS = ("gemini-3.1-flash-lite", "gemini-flash-lite-latest", "gemini-3.5-flash")
+# Live mode's first choice. Timed at the demo integration (2026-10-18, the fixture ticket, JSON answer):
+# gemini-3.8-flash 153 s, 3.7-flash 17 s, 3.5-flash 7 s, 3.5-flash-lite 1.1 s, 3.1-flash-lite 1.4 s.
+# The five-second rule (D4, D5) leaves only the lite models. Cassettes were recorded with GEMINI_MODEL
+# and keep replaying under it; recording (HANDLED_RECORD=1) still uses GEMINI_MODEL so the request
+# hash names the model that answered. HANDLED_LIVE_MODEL overrides the live choice.
+LIVE_MODEL = "gemini-3.5-flash-lite"
 
 Kind = Literal["ticket", "bill", "product", "unknown"]
 
@@ -36,6 +46,12 @@ kind "product": a retail product. fields: name (brand, product line and type, e.
 size_visible: for a product, whether its size can be read in this frame. size_guess: for a product whose size cannot be read, the size of this product you judge most likely from the container's shape and proportions (e.g. "12 oz"), else null.
 legible: true only when every field listed for that kind can be read with certainty in this frame (for a product: its name; the size may be hidden). Never guess a digit: if any digit of a number or a date is blurred, smeared, too small or cut off, legible is false.
 kind "unknown": anything else, or nothing at all, with fields {}."""
+
+# Live mode only (never recorded, so no cassette changes): what the webcam taught us at the demo
+# integration. Appended to IDENTIFY_PROMPT when the eye answers live.
+LIVE_ADDENDUM = """
+Live webcam notes: the frame may be a phone screen or a print held in a hand; read what is printed, not what the container suggests.
+For a product, name the brand and the product or model as a shopper would search for it (e.g. "JBL Clip 4 portable Bluetooth speaker", "Apple AirPods Pro", "Celsius Sparkling Orange energy drink"). Read logos and printed text where they show; well-known products may also be recognised by their look (earbuds in a white flip-top case with a front LED are Apple AirPods Pro; a small clip-on speaker with a JBL logo is a JBL Clip). For a product, legible is true whenever you can name the brand and product with confidence, from text or from appearance; it is false only when you cannot say what the product is. Electronics, tools and clothing have no size: size is null and size_visible false unless a size is printed. Never swap a brand for a look-alike you are not confident of; prefer brand plus type (e.g. "JBL Bluetooth speaker") over a wrong model number."""
 
 VARIANT_PROMPT = """The image is one webcam frame of {name} held up to a laptop. Its size cannot be fully read: part of the size line is hidden.
 Which size is this most likely? First list the sizes {name} is actually sold in. Then pick the one this frame most likely shows: any characters of the size line that do show (a leading digit, a unit) rule out every size that does not begin with them, and the container's proportions decide among the rest.
@@ -181,9 +197,22 @@ class GeminiEye:
     def _generate(self, parts: list[Any], json_answer: bool) -> str:
         from google.genai import types
 
+        from google.genai import errors
+
         config = types.GenerateContentConfig(response_mime_type="application/json") if json_answer else None
-        response = self._live_client().models.generate_content(model=self.model, contents=parts, config=config)
-        return response.text or ""
+        last: Exception | None = None
+        recording = os.environ.get("HANDLED_RECORD") == "1"
+        first = self.model if recording else os.environ.get("HANDLED_LIVE_MODEL") or LIVE_MODEL
+        for model in (first, *(m for m in GEMINI_FALLBACKS if m != first)):
+            try:
+                response = self._live_client().models.generate_content(model=model, contents=parts, config=config)
+                return response.text or ""
+            except errors.APIError as err:  # 503 high demand, 429 quota: the next model, at once
+                if getattr(err, "code", None) not in (429, 503):
+                    raise
+                last = err
+        assert last is not None
+        raise last
 
     def identify_request(self, frame: Frame) -> dict[str, Any]:
         return {
@@ -198,7 +227,8 @@ class GeminiEye:
         def live() -> str:
             from google.genai import types
 
-            return self._generate([types.Part.from_bytes(data=frame.image, mime_type=frame.content_type), IDENTIFY_PROMPT], json_answer=True)
+            prompt = IDENTIFY_PROMPT if os.environ.get("HANDLED_RECORD") == "1" else IDENTIFY_PROMPT + LIVE_ADDENDUM
+            return self._generate([types.Part.from_bytes(data=frame.image, mime_type=frame.content_type), prompt], json_answer=True)
 
         ident = parse_identification(self.cassette.play("identify", self.identify_request(frame), live))
         if ident.kind == "product" and ident.fields.get("size") is None:
@@ -245,4 +275,4 @@ class GeminiEye:
         return letter
 
 
-__all__ = ["Cassette", "CassetteMissing", "Frame", "GEMINI_MODEL", "GeminiEye", "Identification", "Kind", "parse_identification", "size_text"]
+__all__ = ["Cassette", "CassetteMissing", "Frame", "GEMINI_FALLBACKS", "GEMINI_MODEL", "LIVE_MODEL", "GeminiEye", "Identification", "Kind", "parse_identification", "size_text"]

@@ -22,6 +22,8 @@ failing, under the step's own name (risk-1).
 
 from __future__ import annotations
 
+import sys
+
 import re
 from dataclasses import dataclass
 from decimal import Decimal
@@ -82,6 +84,9 @@ class BaseChore:
             except PlaywrightError as err:
                 raise StepFailed(name, self.page.url if self.page is not None else None) from err
         except StepFailed as failed:
+            # The operator reads why on stderr; the card shows only the step's name (D10, D15).
+            cause = failed.__cause__
+            print(f"handled hands: step failed: {failed.step}" + (f" ({type(cause).__name__}: {str(cause).splitlines()[0][:160]})" if cause else ""), file=sys.stderr, flush=True)
             self.stopped = True
             self.desk.card.controls = []
             self.desk.card.question = None
@@ -145,10 +150,21 @@ class TicketChore(BaseChore):
         portal = self.portal
         page = await self._open(portal.lookup_url, f"Could not reach the {portal.city} citation page")
         await self._no_login(page)
+        if portal.lookup_choice:
+            await page.check(portal.lookup_choice)
         await page.fill(portal.citation_field, self.citation)
-        await page.fill(portal.plate_field, str(self.fields["plate"]))
-        async with page.expect_navigation():
-            await page.click(portal.lookup_button)
+        if portal.plate_field:  # the real Los Angeles page has no plate box
+            await page.fill(portal.plate_field, str(self.fields["plate"]))
+        if portal.captcha_field and await page.locator(portal.captcha_field).count() > 0:
+            # D36: the agent never solves a CAPTCHA. The card says so, and the chore waits, with no
+            # time-out, for the user to type it in the visible browser and press the page's own button.
+            card.notice = "Type the CAPTCHA in the browser and press Submit; I will carry on from there"
+            async with page.expect_navigation(timeout=0):
+                pass
+            card.notice = None
+        else:
+            async with page.expect_navigation():
+                await page.click(portal.lookup_button)
         await self._no_login(page)
         if await page.locator(portal.found).count() == 0:
             raise StepFailed(f"Citation {self.citation} was not found")
