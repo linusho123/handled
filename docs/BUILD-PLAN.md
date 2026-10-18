@@ -49,7 +49,7 @@ Every agent that runs a phase reads this file itself. It is written so that a mo
 
 ## Pre-decided so P0 never asks
 
-Python 3.11 in a uv venv (`npm run setup:py`), `playwright` with Chromium installed by `npm run setup:py`, `google-genai`, `browser-use`, FastAPI + uvicorn, Pillow for fixtures, pytest; TypeScript step bindings on gherkin-node-test 0.11.0 with Vitest 4, oxlint, `@bingh/docketry` 0.1.0; `scripts/py.mjs`, `scripts/lane.mjs`, `scripts/lint-features.mjs`, `test/setup/no-network.ts`, `test/harness/app.ts` copied from `../taken` with `TAKEN_` renamed `HANDLED_`; the desk's state as one JSON document; the virtual clock over HTTP; cassettes for Gemini and Browser Use; a fake for texts; the test Visa number `4242 4242 4242 4242` as the card on file in test mode and at the demo. Gemini key from Google AI Studio in `.env` (`GEMINI_API_KEY`), never committed.
+Python 3.11 in a uv venv (`npm run setup:py`), `playwright` with Chromium installed by `npm run setup:py`, `google-genai`, FastAPI + uvicorn, Pillow for fixtures, pytest; TypeScript step bindings on gherkin-node-test 0.11.0 with Vitest 4, oxlint, `@bingh/docketry` 0.1.0; `scripts/py.mjs`, `scripts/lane.mjs`, `scripts/lint-features.mjs`, `test/setup/no-network.ts`, `test/harness/app.ts` copied from `../taken` with `TAKEN_` renamed `HANDLED_`; the desk's state as one JSON document; the virtual clock over HTTP; cassettes for Gemini and Browser Use; a fake for texts; the test Visa number `4242 4242 4242 4242` as the card on file in test mode and at the demo. Gemini key from Google AI Studio in `.env` (`GEMINI_API_KEY`), never committed.
 
 ## Schedule
 
@@ -102,7 +102,7 @@ Cumulative ≈ 9.5 hours against ~12 remaining at the time of writing. If PD sli
 
 ## P4 — The bill chore
 
-**Builds.** `BillChore`: find the biller's payment page through the `SiteMap` (fixture `ladwp`) and, for an unknown biller, `BrowserUseFinder` (cassette); fill account and amount; the Confirm gate; the three faults with `call to pay` and the printed number.
+**Builds.** `BillChore`: find the biller's payment page through the `SiteMap` (fixture `ladwp`) and, for an unknown biller, `BrowserUseFinder` (cassette). Browser Use is not installed before this phase (the operator's ruling, 2026-10-18: not until it is necessary); this phase adds `browser-use` to the Python dependencies, records its cassette once against the fixture biller, and if the install or the recording fails in thirty minutes the unknown-biller path is `call to pay` and the fence records the finder as deferred; fill account and amount; the Confirm gate; the three faults with `call to pay` and the printed number.
 **Binds.** `bill.feature` (every scenario).
 **Second reviewer's focus.** The phone number on the card comes from the identification's fields (the bill's own print), never from a lookup; a probe that pays before the gate must turn the first scenario red through the biller's ledger.
 **Gate.** as P1 with its file.
