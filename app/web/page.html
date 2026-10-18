@@ -5,66 +5,187 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Handled</title>
 <style>
-  body { font-family: system-ui, sans-serif; margin: 16px; background: #fafafa; color: #111; }
-  main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  @media (max-width: 700px) { main { grid-template-columns: 1fr; } }
-  video { width: 100%; background: #000; border-radius: 8px; }
-  #card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-height: 8em; }
-  #card:empty::before { content: "Hold something up to the webcam."; color: #777; }
-  button { font-size: 1rem; padding: 8px 16px; }
+  :root {
+    --bg: #f3f4f6; --panel: #ffffff; --ink: #111827; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #2563eb; --accent-ink: #ffffff; --ok: #15803d; --ok-bg: #ecfdf5; --warn: #b45309; --warn-bg: #fffbeb;
+    --bad: #b91c1c; --bad-bg: #fef2f2; --wait: #6d28d9; --wait-bg: #f5f3ff; --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --panel: #171a21; --ink: #e5e7eb; --muted: #9aa3b2; --line: #2a2f3a;
+      --ok-bg: #0f2a1c; --warn-bg: #2a200b; --bad-bg: #2a1212; --wait-bg: #1e1733; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 18px 28px; }
+  .wordmark { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .wordmark small { font-weight: 400; color: var(--muted); margin-left: 10px; font-size: 14px; }
+  .pill { font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+  .pill[data-state="watching"] { color: var(--muted); }
+  .pill[data-state="working"] { color: var(--accent); border-color: var(--accent); }
+  .pill[data-state="waiting"] { color: var(--wait); background: var(--wait-bg); border-color: transparent; }
+  .pill[data-state="done"] { color: var(--ok); background: var(--ok-bg); border-color: transparent; }
+  .pill[data-state="stopped"] { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
+  main { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); padding: 0 28px 28px; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .cam { position: relative; }
+  video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; }
+  .cam .hint { position: absolute; left: 14px; bottom: 12px; font-size: 13px; color: #fff; background: rgba(0,0,0,.55); padding: 5px 10px; border-radius: 999px; }
+  .card { padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; min-height: 420px; }
+  .empty { color: var(--muted); margin: auto; text-align: center; }
+  .empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+  .kind { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .kind::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  h2 { margin: 2px 0 0; font-size: 22px; line-height: 1.25; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+  dt { color: var(--muted); font-size: 14px; } dd { margin: 0; font-variant-numeric: tabular-nums; }
+  .status { padding: 12px 14px; border-radius: 10px; font-weight: 500; }
+  .status.ok { background: var(--ok-bg); color: var(--ok); }
+  .status.warn { background: var(--warn-bg); color: var(--warn); }
+  .status.bad { background: var(--bad-bg); color: var(--bad); }
+  .status.wait { background: var(--wait-bg); color: var(--wait); }
+  blockquote { margin: 0; padding: 12px 16px; border-left: 3px solid var(--line); color: var(--ink); font-style: italic; }
+  .ranking { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .ranking li { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; }
+  .ranking li.best { border-color: var(--ok); background: var(--ok-bg); }
+  .ranking .store { font-weight: 600; } .ranking .price { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ranking .tag { font-size: 12px; color: var(--ok); margin-left: 10px; font-weight: 600; }
+  .ranking li.missing { color: var(--muted); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+  .meta a { color: var(--accent); text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; }
+  button { font: inherit; font-weight: 600; padding: 11px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.confirm { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 17px; padding: 13px 24px; }
+  button.quiet { color: var(--muted); background: transparent; }
+  form.say { display: flex; gap: 8px; margin-top: auto; }
+  form.say input { flex: 1; font: inherit; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  form.say input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  footer { padding: 0 28px 24px; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
+<header>
+  <div class="wordmark">Handled <small>hold it up, it gets done</small></div>
+  <div class="pill" id="state" data-state="watching">Watching</div>
+</header>
 <main>
-  <section>
+  <section class="panel cam">
     <video id="webcam" autoplay muted playsinline></video>
     <canvas id="grab" hidden></canvas>
+    <div class="hint" id="hint">Hold a ticket, a bill or a product up to the camera</div>
   </section>
-  <section>
-    <div id="card" aria-live="polite"></div>
-    <div id="controls"></div>
-    <form id="say"><input id="say-text" name="text" placeholder="Say or type…" autocomplete="off"> <button type="submit">Send</button></form>
-    <p><button id="start-over" type="button" title="Clear the card and close the tabs; nothing is confirmed or submitted">Start over</button></p>
+  <section class="panel card" id="card" aria-live="polite">
+    <div class="empty"><strong>Nothing yet</strong>Hold something up to the webcam. The card names it in a few seconds.</div>
   </section>
 </main>
+<footer>Nothing is paid, bought or filed until you tap Confirm or say yes. Start over clears the card and closes the tabs.</footer>
 <script>
 // The desk's page: the webcam, the card as GET /desk holds it, and the
 // controls it offers. Frames go to POST /frame as JPEG; Confirm goes to
-// POST /confirm (the gate's tap); Pay, Contest and Buy go to POST /tap; what the
-// user says or types goes to POST /say (a spoken "yes" is the gate's other way through).
+// POST /confirm (the gate's tap); Pay, Contest, Buy and Next go to POST /tap; what the
+// user says or types goes to POST /say (a spoken "yes" is the gate's other way through);
+// Start over goes to POST /start-over.
 const card = document.getElementById('card');
-const controls = document.getElementById('controls');
+const pill = document.getElementById('state');
+const hint = document.getElementById('hint');
+const KINDS = { ticket: 'Parking ticket', bill: 'Bill', product: 'Product' };
+const LABELS = { citation: 'Citation', plate: 'Plate', city: 'City', issued: 'Issued', due: 'Due', amount: 'Amount', violation: 'Violation',
+  biller: 'Biller', account: 'Account', phone: 'Phone', name: 'Name', brand: 'Brand', size: 'Size' };
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+
+function title(desk) {
+  const f = desk.identified.fields || {};
+  if (desk.identified.kind === 'ticket') return 'Citation ' + (f.citation || '') + (f.city ? ' · ' + f.city : '');
+  if (desk.identified.kind === 'bill') return (f.biller || 'Bill') + (f.amount ? ' · $' + String(f.amount).replace(/^\$/, '') : '');
+  return [f.name || 'Product', f.size].filter(Boolean).join(', ');
+}
+
+function state(desk) {
+  if (desk.controls.includes('Confirm')) return ['waiting', 'Waiting for you'];
+  if (desk.failed_step) return ['stopped', 'Stopped'];
+  if (desk.controls.includes('Next')) return ['done', 'Done'];
+  if (desk.question || desk.notice) return ['waiting', 'Waiting for you'];
+  if (desk.identified) return ['working', 'Working'];
+  return ['watching', 'Watching'];
+}
+
 function render(desk) {
+  const [s, label] = state(desk);
+  pill.dataset.state = s; pill.textContent = label;
+  hint.textContent = desk.identified ? 'Tap Next or Start over to hold up the next thing' : (desk.notice || 'Hold a ticket, a bill or a product up to the camera');
   card.textContent = '';
-  const lines = [];
-  if (desk.identified) {
-    const f = desk.identified.fields;
-    lines.push(desk.identified.kind + ': ' + Object.entries(f).filter(([, v]) => v).map(([k, v]) => k + ' ' + v).join(', '));
+  if (!desk.identified) {
+    const e = el('div', 'empty'); e.appendChild(el('strong', null, desk.notice ? 'Hold it closer' : 'Nothing yet'));
+    e.appendChild(document.createTextNode(desk.notice ? 'Fill the frame, hold still, and keep the light on it.' : 'Hold something up to the webcam. The card names it in a few seconds.'));
+    card.appendChild(e); card.appendChild(sayForm()); return;
   }
-  for (const key of ['notice', 'question', 'letter', 'done', 'failed_step']) if (desk[key] && !(key === 'failed_step' && desk[key] === desk.done)) lines.push(desk[key]);
-  (desk.ranking || []).forEach((r, i) => lines.push((i + 1) + '. ' + r.store + ' ' + r.price + (r.store === desk.buy ? ' (Buy)' : '')));
-  for (const store of desk.not_found || []) lines.push(store + ': not found');
-  if (desk.deadline) lines.push('Due ' + desk.deadline + (desk.deadline_note ? ' (' + desk.deadline_note + ')' : ''));
-  if (desk.link) lines.push(desk.link);
-  for (const line of lines) { const p = document.createElement('p'); p.textContent = line; card.appendChild(p); }
-  controls.textContent = '';
+  card.appendChild(el('div', 'kind', KINDS[desk.identified.kind] || desk.identified.kind));
+  card.appendChild(el('h2', null, title(desk)));
+  const dl = el('dl');
+  for (const [k, v] of Object.entries(desk.identified.fields || {})) {
+    if (!v) continue;
+    if ((desk.identified.kind === 'ticket' && (k === 'citation' || k === 'city')) || (desk.identified.kind === 'product' && (k === 'name' || k === 'size')) || (desk.identified.kind === 'bill' && (k === 'biller' || k === 'amount'))) continue;
+    dl.appendChild(el('dt', null, LABELS[k] || k)); dl.appendChild(el('dd', null, k === 'amount' ? '$' + String(v).replace(/^\$/, '') : String(v)));
+  }
+  if (dl.childElementCount) card.appendChild(dl);
+  if (desk.question) card.appendChild(el('div', 'status wait', desk.question));
+  if (desk.notice) card.appendChild(el('div', 'status warn', desk.notice));
+  if (desk.failed_step && desk.failed_step !== desk.done) card.appendChild(el('div', 'status bad', desk.failed_step));
+  if (desk.done) card.appendChild(el('div', 'status ' + (desk.failed_step === desk.done ? 'bad' : desk.controls.includes('Confirm') ? 'wait' : 'ok'), desk.done));
+  if (desk.letter) { const q = el('blockquote', null, desk.letter); card.appendChild(q); }
+  if ((desk.ranking || []).length || (desk.not_found || []).length) {
+    const ul = el('ul', 'ranking');
+    (desk.ranking || []).forEach((r, i) => {
+      const li = el('li', i === 0 ? 'best' : '');
+      const left = el('span', 'store', r.store); if (i === 0) left.appendChild(el('span', 'tag', 'cheapest'));
+      li.appendChild(left); li.appendChild(el('span', 'price', r.price)); ul.appendChild(li);
+    });
+    for (const store of desk.not_found || []) { const li = el('li', 'missing'); li.appendChild(el('span', 'store', store)); li.appendChild(el('span', null, 'not found')); ul.appendChild(li); }
+    card.appendChild(ul);
+  }
+  const meta = el('div', 'meta');
+  if (desk.deadline) meta.appendChild(el('span', null, 'Due ' + desk.deadline + (desk.deadline_note ? ' (' + desk.deadline_note + ')' : '')));
+  if (desk.link && desk.link !== 'about:blank') { const a = el('a', null, desk.link.replace(/^https?:\/\//, '')); a.href = desk.link; a.target = '_blank'; a.rel = 'noopener'; meta.appendChild(a); }
+  if (meta.childElementCount) card.appendChild(meta);
+  const controls = el('div', 'controls');
   for (const name of desk.controls) {
-    const b = document.createElement('button');
-    b.textContent = name;
-    b.onclick = name === 'Confirm'
-      ? () => fetch('/confirm', { method: 'POST' })
-      : () => fetch('/tap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ control: name }) });
+    const b = el('button', name === 'Confirm' ? 'confirm' : name === 'Next' ? 'quiet' : 'primary', name === 'Confirm' ? 'Confirm' : name);
+    b.onclick = name === 'Confirm' ? () => post('/confirm') : () => post('/tap', { control: name });
     controls.appendChild(b);
   }
+  const over = el('button', 'quiet', 'Start over'); over.type = 'button'; over.title = 'Clear the card and close the tabs; nothing is confirmed or submitted';
+  over.onclick = () => post('/start-over'); controls.appendChild(over);
+  card.appendChild(controls);
+  card.appendChild(sayForm());
 }
+
+function sayForm() {
+  const form = el('form', 'say'); form.id = 'say';
+  const input = el('input'); input.id = 'say-text'; input.name = 'text'; input.autocomplete = 'off';
+  input.placeholder = 'Say or type: "pay", "contest, the meter was broken", "yes"…';
+  const send = el('button', 'primary', 'Send'); send.type = 'submit';
+  form.appendChild(input); form.appendChild(send);
+  form.addEventListener('submit', (e) => { e.preventDefault(); if (!input.value.trim()) return; post('/say', { text: input.value }); input.value = ''; });
+  if (document.activeElement && document.activeElement.id === 'say-text') { const v = document.activeElement.value; queueMicrotask(() => { input.value = v; input.focus(); }); }
+  return form;
+}
+
+let last = '';
 async function poll() {
-  try { render(await (await fetch('/desk')).json()); } catch (e) { /* the server is restarting */ }
+  try {
+    const desk = await (await fetch('/desk')).json();
+    const now = JSON.stringify(desk);
+    if (now !== last) { last = now; render(desk); }
+  } catch (e) { /* the server is restarting */ }
 }
 setInterval(poll, 500); poll();
-document.getElementById('start-over').onclick = () => fetch('/start-over', { method: 'POST' });
+
 const video = document.getElementById('webcam');
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-  navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+  navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 960 } } }).then((stream) => {
     video.srcObject = stream;
     const canvas = document.getElementById('grab');
     setInterval(() => {
@@ -73,14 +194,8 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       canvas.getContext('2d').drawImage(video, 0, 0);
       canvas.toBlob((blob) => blob && fetch('/frame', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob }), 'image/jpeg', 0.85);
     }, 1000);
-  }).catch(() => {});
+  }).catch(() => { hint.textContent = 'Camera not available: allow it in the browser and reload'; });
 }
-document.getElementById('say').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const input = document.getElementById('say-text');
-  fetch('/say', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: input.value }) });
-  input.value = '';
-});
 </script>
 </body>
 </html>
