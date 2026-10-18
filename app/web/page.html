@@ -24,6 +24,7 @@
     <div id="card" aria-live="polite"></div>
     <div id="controls"></div>
     <form id="say"><input id="say-text" name="text" placeholder="Say or type…" autocomplete="off"> <button type="submit">Send</button></form>
+    <p><button id="start-over" type="button" title="Clear the card and close the tabs; nothing is confirmed or submitted">Start over</button></p>
   </section>
 </main>
 <script>
@@ -60,6 +61,7 @@ async function poll() {
   try { render(await (await fetch('/desk')).json()); } catch (e) { /* the server is restarting */ }
 }
 setInterval(poll, 500); poll();
+document.getElementById('start-over').onclick = () => fetch('/start-over', { method: 'POST' });
 const video = document.getElementById('webcam');
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
   navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {

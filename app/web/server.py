@@ -138,6 +138,17 @@ def create_app(
                 return JSONResponse({"error": "nothing is waiting for Confirm"}, status_code=409)
         return JSONResponse(desk.state())
 
+    if not test_mode:
+
+        @api.post("/start-over")
+        async def start_over() -> JSONResponse:
+            """Live only: clear the card and close every tab so the next thing can be held up,
+            at any point, paused included. Nothing is confirmed or submitted by it."""
+            async with desk.lock:
+                desk.start_over()
+                await hands.reset()
+            return JSONResponse(desk.state())
+
     @api.post("/tap")
     async def tap(request: Request) -> JSONResponse:
         """A tap on a card control other than Confirm (Pay, Contest, Buy)."""
@@ -149,6 +160,8 @@ def create_app(
         async with desk.lock:
             if not await desk.tap(control):
                 return JSONResponse({"error": f"the card does not offer {control!r}"}, status_code=409)
+            if control == "Next":
+                await hands.reset()  # the ended chore's tabs close with it
         return JSONResponse(desk.state())
 
     @api.post("/say")
