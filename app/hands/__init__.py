@@ -1,7 +1,9 @@
 """The hands: a Playwright Chromium the user can watch (headless in tests).
 
-P0 starts the browser and reads back what it shows; the chores (TicketChore,
-BillChore, ProductChore) and the SiteMap arrive with their phases. In test mode
+The chores (app/hands/chores.py) drive it through the SiteMap
+(app/hands/sitemap.py). `submit_final` is the one place in the app that presses
+a pay, buy or submit button, and it refuses unless the desk is confirmed (the
+Confirm gate, D7). In test mode
 (HANDLED_SITES=fixtures) every request the browser makes is held to loopback,
 where the fixture sites live: anything else is aborted, never fetched.
 """
@@ -13,6 +15,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from playwright.async_api import Browser, BrowserContext, Page, Playwright, Route, async_playwright
+
+from app.hands.sitemap import FinalSubmit
 
 # Every form control the page shows, by name (else id), with the value the DOM holds now.
 _READ_FIELDS = """() => {
@@ -92,6 +96,18 @@ class Hands:
         page = await self._context.new_page()
         await page.goto(url)
         return page
+
+    async def new_tab(self) -> Page:
+        """A blank tab the user can watch; the chore navigates it."""
+        assert self._context is not None, "the hands are not started"
+        return await self._context.new_page()
+
+    async def submit_final(self, page: Page, button: FinalSubmit, desk: Any) -> None:
+        """Press a form's final submit: the payment, the order, the filing. The only
+        code path that does, and only once Confirm was tapped or a yes was said."""
+        desk.require_confirmed()
+        async with page.expect_navigation():
+            await page.click(button.selector)
 
     async def view(self) -> dict[str, Any]:
         """What the browser shows, read from Playwright: the active (last opened) tab's

@@ -1,7 +1,9 @@
 """la-citations: the city of Los Angeles's citation portal, as a fixture.
 
   GET  /                 the lookup form (citation, plate)
-  GET  /lookup           the citation's page with Pay and Contest, or "not found" on the lookup page
+  GET  /lookup           the citation's page (the pay-or-contest page): the lookup form keeping the
+                         citation and plate the browser submitted, the citation, Pay and Contest;
+                         or "not found" on the lookup page
   GET  /pay?citation=    the payment form: the amount set by the city, the card fields
   POST /pay              pays: the ledger records {"kind": "payment", …}
   GET  /contest?citation= the contest form with a letter box
@@ -42,16 +44,19 @@ class CitySite(Site):
             return None
         return record
 
-    def _lookup_form(self, message: str = "", status: int = 200) -> HTMLResponse:
-        note = f"<p class='error' role='alert'>{esc(message)}</p>" if message else ""
-        return page(
-            f"{TITLE} - Look up a citation",
-            note + "<form method='get' action='/sites/la-citations/lookup'>"
-            "<label>Citation number <input name='citation' id='citation'></label>"
-            "<label>License plate <input name='plate' id='plate'></label>"
-            "<button type='submit'>Look up</button></form>",
-            status,
+    @staticmethod
+    def _form(citation: str = "", plate: str = "") -> str:
+        # Like any search box, the form keeps what was submitted to it.
+        return (
+            "<form method='get' action='/sites/la-citations/lookup'>"
+            f"<label>Citation number <input name='citation' id='citation' value='{esc(citation)}'></label>"
+            f"<label>License plate <input name='plate' id='plate' value='{esc(plate)}'></label>"
+            "<button type='submit' id='lookup'>Look up</button></form>"
         )
+
+    def _lookup_form(self, message: str = "", status: int = 200, citation: str = "", plate: str = "") -> HTMLResponse:
+        note = f"<p class='error' role='alert'>{esc(message)}</p>" if message else ""
+        return page(f"{TITLE} - Look up a citation", note + self._form(citation, plate), status)
 
     def router(self) -> APIRouter:
         r = APIRouter()
@@ -66,11 +71,11 @@ class CitySite(Site):
                 return blocked
             record = self._find(citation, plate)
             if record is None:
-                return self._lookup_form(f"Citation {citation} was not found", status=404)
+                return self._lookup_form(f"Citation {citation} was not found", status=404, citation=citation, plate=plate)
             c = esc(citation.strip())
             return page(
                 f"{TITLE} - Citation {citation.strip()}",
-                f"<dl><dt>Citation</dt><dd id='citation-number'>{c}</dd>"
+                self._form(citation, plate) + f"<dl><dt>Citation</dt><dd id='citation-number'>{c}</dd>"
                 f"<dt>Plate</dt><dd id='plate-number'>{esc(record['plate'])}</dd>"
                 f"<dt>Amount due</dt><dd id='amount'>${esc(record['amount'])}</dd></dl>"
                 f"<a id='pay' href='/sites/la-citations/pay?citation={c}'>Pay</a> "

@@ -2,8 +2,10 @@
 
   python test/fixtures/make-images.py <out dir>      (npm run fixtures)
 
-Six images with known fields, drawn with Pillow so the printed text is exactly
-the FIXTURES table below; fields.json beside them records the same table so a
+Twelve images with known fields, drawn with Pillow so the printed text is exactly
+the FIXTURES table below (P0 drew six; P1 added the smeared ticket for D5, the
+Cholula bottle with its size hidden for D8, and ticket 4512087734 with no
+printed due date at four issue dates for D13); fields.json beside them records the same table so a
 binding can name what each image prints. Deterministic: the same Pillow draws
 the same bytes, so a cassette keyed on the image's hash stays valid.
 """
@@ -53,15 +55,41 @@ FIXTURES: dict[str, dict] = {
     },
     "blank-sheet.png": {"kind": "unknown", "fields": {}, "note": "a blank sheet of paper"},
     "mug.png": {"kind": "unknown", "fields": {}, "note": "a coffee mug with no label"},
+    "ticket-smeared.png": {
+        "kind": "unknown",
+        "fields": {},
+        "note": "la-ticket moving so fast the frame is smeared: a long horizontal motion blur",
+    },
+    "cholula-size-hidden.png": {
+        "kind": "product",
+        "fields": {"name": "Cholula Original hot sauce", "size": None},
+        "note": "the 32 oz bottle with its size line hidden by a hand; the frame does not settle the size",
+    },
 }
+
+# D13: ticket 4512087734 prints its issue date and no due date.
+NO_DUE_ISSUED = ("2026-10-12", "2026-10-31", "2026-12-20", "2028-02-10")
+for _issued in NO_DUE_ISSUED:
+    FIXTURES[f"la-ticket-4512087734-{_issued}.png"] = {
+        "kind": "ticket",
+        "fields": {
+            "city": "Los Angeles",
+            "citation": "4512087734",
+            "plate": "8ABC123",
+            "issued": _issued,
+            "due": None,
+            "amount": "73.00",
+            "violation": "Meter expired",
+        },
+    }
 
 
 def font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default(size=size)
 
 
-def ticket() -> Image.Image:
-    f = FIXTURES["la-ticket.png"]["fields"]
+def ticket(name: str = "la-ticket.png") -> Image.Image:
+    f = FIXTURES[name]["fields"]
     img = Image.new("RGB", (W, H), DESK)
     d = ImageDraw.Draw(img)
     d.rectangle((340, 40, 940, 680), fill=(252, 250, 240), outline=(40, 40, 40), width=3)
@@ -73,8 +101,9 @@ def ticket() -> Image.Image:
         ("ISSUE DATE", f["issued"]),
         ("VIOLATION", f["violation"]),
         ("AMOUNT DUE", f"${f['amount']}"),
-        ("DUE DATE", f["due"]),
     ]
+    if f["due"] is not None:
+        rows.append(("DUE DATE", f["due"]))
     y = 170
     for label, value in rows:
         d.text((370, y), label, font=font(20), fill=(80, 80, 80))
@@ -104,7 +133,7 @@ def bill() -> Image.Image:
     return img
 
 
-def cholula() -> Image.Image:
+def cholula(size_hidden: bool = False) -> Image.Image:
     img = Image.new("RGB", (W, H), DESK)
     d = ImageDraw.Draw(img)
     d.rectangle((600, 40, 680, 150), fill=(30, 20, 15))  # the wooden cap
@@ -114,6 +143,15 @@ def cholula() -> Image.Image:
     d.text((548, 385), "ORIGINAL", font=font(30), fill=(0, 0, 0))
     d.text((548, 425), "HOT SAUCE", font=font(30), fill=(0, 0, 0))
     d.text((548, 490), "32 FL OZ", font=font(34), fill=(0, 0, 0))
+    if size_hidden:
+        # A hand from the right across the size line: the thumb and palm cover it
+        # from its second character on, so only the leading digit shows.
+        skin, shade = (224, 172, 138), (196, 142, 110)
+        d.rounded_rectangle((570, 476, 800, 600), radius=40, fill=skin)
+        for i in range(4):
+            y = 480 + i * 30
+            d.rounded_rectangle((760, y, 860, y + 29), radius=14, fill=skin, outline=shade, width=2)
+        d.rounded_rectangle((566, 470, 660, 530), radius=26, fill=skin, outline=shade, width=2)
     return img
 
 
@@ -123,6 +161,19 @@ def blurred_ticket() -> Image.Image:
     img = Image.new("RGB", (W, H), DESK)
     img.paste(small, ((W - small.width) // 2, (H - small.height) // 2))
     return img.filter(ImageFilter.GaussianBlur(2))
+
+
+def smeared_ticket() -> Image.Image:
+    # Moving fast: the ticket swept 160 px sideways during the exposure, every
+    # position weighted equally (a box motion blur built from shifted copies).
+    base = ticket()
+    steps = 33
+    out = base
+    for i in range(1, steps):
+        shifted = Image.new("RGB", (W, H), DESK)
+        shifted.paste(base, (i * 5, 0))
+        out = Image.blend(out, shifted, 1.0 / (i + 1))
+    return out
 
 
 def blank_sheet() -> Image.Image:
@@ -147,6 +198,9 @@ DRAW = {
     "ticket-blurred.png": blurred_ticket,
     "blank-sheet.png": blank_sheet,
     "mug.png": mug,
+    "ticket-smeared.png": smeared_ticket,
+    "cholula-size-hidden.png": lambda: cholula(size_hidden=True),
+    **{f"la-ticket-4512087734-{issued}.png": (lambda n=f"la-ticket-4512087734-{issued}.png": ticket(n)) for issued in NO_DUE_ISSUED},
 }
 
 

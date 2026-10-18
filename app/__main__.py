@@ -4,9 +4,9 @@
 
 --test runs on a virtual clock with the fake texts, a headless Chromium held
 to loopback, the fixture sites under /sites/<site>/ and the /test/* endpoints
-(app/web/server.py). The demo mode (real clock, headed browser, real sites,
-live Gemini and texts) arrives with the phases that build it; P0 has only
-test mode to run.
+(app/web/server.py), and the eye replaying its cassettes (test/cassettes/).
+The demo mode (real clock, headed browser, real sites, live Gemini and texts)
+arrives with the demo integration (PD); only test mode runs so far.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if not args.test:
-        print("python -m app: only --test is built so far (P0)", file=sys.stderr)
+        print("python -m app: only --test is built so far (the demo mode is PD)", file=sys.stderr)
         return 2
 
     import uvicorn
@@ -35,10 +35,23 @@ def main(argv: list[str] | None = None) -> int:
     from fixture_sites import Sites
 
     from app.desk import Desk, FakeTexts, VirtualClock
+    from app.eye import GeminiEye
     from app.hands import Hands
+    from app.hands.sitemap import SiteMap
     from app.web.server import create_app
 
-    api = create_app(clock=VirtualClock(), desk=Desk(), hands=Hands(headless=True), texts=FakeTexts(), sites=Sites(), test_mode=True)
+    # The fixture sites live on this server; the browser reaches them over loopback.
+    sitemap = SiteMap(f"http://127.0.0.1:{args.port}")
+    api = create_app(
+        clock=VirtualClock(),
+        desk=Desk(),
+        hands=Hands(headless=True),
+        texts=FakeTexts(),
+        sites=Sites(),
+        test_mode=True,
+        eye=GeminiEye(),
+        sitemap=sitemap,
+    )
     print(f"handled: listening on http://{args.host}:{args.port} (test mode)", flush=True)
     uvicorn.run(api, host=args.host, port=args.port, log_level="warning")
     return 0

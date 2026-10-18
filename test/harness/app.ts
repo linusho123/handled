@@ -19,12 +19,15 @@ export type SiteName = (typeof SITES)[number]
 
 /** The card as GET /desk returns it: what the page renders. */
 export type Desk = {
-  identified: Record<string, unknown> | null
+  identified: { kind: string; fields: Record<string, string | null> } | null
   done: string | null
   deadline: string | null
+  deadline_note: string | null
   link: string | null
   controls: string[]
   question: string | null
+  letter: string | null
+  notice: string | null
   failed_step: string | null
 }
 
@@ -127,6 +130,26 @@ export class App {
   async advance(seconds: number): Promise<string> {
     this.now = (await this.json<{ now: string }>('POST', '/test/advance', { seconds })).now
     return this.now
+  }
+
+  /** Test mode: how long the eye takes to answer, in seconds of virtual time. */
+  async eyeDelay(seconds: number): Promise<void> {
+    await this.json('POST', '/test/eye', { seconds })
+  }
+
+  /** The user taps a control on the card other than Confirm (Pay, Contest), as the page does. */
+  tap(control: string): Promise<Response> {
+    return this.request('POST', '/tap', { control })
+  }
+
+  /** The user taps Confirm, as the page's Confirm button does. */
+  confirm(): Promise<Response> {
+    return this.request('POST', '/confirm')
+  }
+
+  /** The user says (or types) something, as the page's microphone button does. */
+  say(text: string): Promise<Response> {
+    return this.request('POST', '/say', { text })
   }
 
   /** The card, through the page's own endpoint. */

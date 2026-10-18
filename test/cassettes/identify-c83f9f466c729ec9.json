@@ -1,0 +1,4 @@
+{
+  "request_hash": "c83f9f466c729ec94f8396d39f21b600168c553af286504b3c9ab3537c909e86",
+  "response": "{\n  \"kind\": \"ticket\",\n  \"legible\": true,\n  \"fields\": {\n    \"city\": \"Los Angeles\",\n    \"citation\": \"4512087734\",\n    \"plate\": \"8ABC123\",\n    \"issued\": \"2026-10-31\",\n    \"due\": null,\n    \"amount\": \"73.00\",\n    \"violation\": \"Meter expired\"\n  },\n  \"size_visible\": false,\n  \"size_guess\": null\n}"
+}

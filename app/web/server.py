@@ -2,6 +2,8 @@
 and the fixture sites (BUILD-PLAN.md, "Architecture").
 
 Every /test/* endpoint reports what the app holds; none pre-seeds anything.
+POST /confirm and POST /say ("yes") are the only callers of Desk.confirm, the
+Confirm gate's one way through (D7); no timer and no clock tick reaches it.
 """
 
 from __future__ import annotations
@@ -18,21 +20,37 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image, UnidentifiedImageError
 
 from app.desk import Clock, Desk, FakeTexts, VirtualClock
+from app.eye import GeminiEye
+from app.eye.cassette import CassetteMissing
 from app.hands import Hands
+from app.hands.chores import chore_for
+from app.hands.sitemap import SiteMap
 
 PAGE = Path(__file__).with_name("page.html")
 
 
-def _image(body: bytes) -> bytes:
-    """The frame, if it is a PNG or JPEG image; else a 400."""
+def _image(body: bytes) -> tuple[bytes, str]:
+    """The frame and its media type, if it is a PNG or JPEG image; else a 400."""
     try:
         with Image.open(io.BytesIO(body)) as img:
             if img.format not in ("PNG", "JPEG"):
                 raise HTTPException(400, f"a frame is a PNG or JPEG image, not {img.format}")
+            kind = "image/png" if img.format == "PNG" else "image/jpeg"
             img.verify()
     except (UnidentifiedImageError, OSError, SyntaxError) as err:
         raise HTTPException(400, "a frame is a PNG or JPEG image") from err
-    return body
+    return body, kind
+
+
+async def _frame(desk: Desk, body: bytes, at: datetime) -> dict[str, Any]:
+    image, kind = _image(body)
+    async with desk.lock:
+        try:
+            await desk.take_frame(image, kind, at)
+        except CassetteMissing as err:
+            # A missing cassette fails loudly, never as an invented answer.
+            raise HTTPException(500, str(err)) from err
+    return {"accepted": True, "at": desk.frame_at}
 
 
 async def _json(request: Request) -> dict[str, Any]:
@@ -56,7 +74,14 @@ def create_app(
     texts: FakeTexts | None = None,
     sites: Any = None,
     test_mode: bool = False,
+    eye: Any = None,
+    sitemap: SiteMap | None = None,
 ) -> FastAPI:
+    eye = eye if eye is not None else GeminiEye()
+    desk.eye = eye
+    if sitemap is not None:
+        desk.chores = chore_for(hands, sitemap, eye)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         await hands.start()
@@ -78,18 +103,44 @@ def create_app(
 
     @api.post("/frame")
     async def frame(request: Request) -> dict[str, Any]:
-        desk.take_frame(_image(await request.body()), now())
-        return {"accepted": True, "at": desk.frame_at}
+        return await _frame(desk, await request.body(), clock.now())
 
     @api.post("/confirm")
-    def confirm() -> JSONResponse:
-        if not desk.waiting_for_confirm():
-            return JSONResponse({"error": "nothing is waiting for Confirm"}, status_code=409)
-        raise HTTPException(500, "unreachable before P1")
+    async def confirm() -> JSONResponse:
+        """A tap on Confirm: the gate's way through (D7)."""
+        async with desk.lock:
+            if not await desk.confirm():
+                return JSONResponse({"error": "nothing is waiting for Confirm"}, status_code=409)
+        return JSONResponse(desk.state())
+
+    @api.post("/tap")
+    async def tap(request: Request) -> JSONResponse:
+        """A tap on a card control other than Confirm (Pay, Contest)."""
+        control = (await _json(request)).get("control")
+        if not isinstance(control, str):
+            raise HTTPException(400, "control is the name of a control on the card")
+        if control == "Confirm":
+            return JSONResponse({"error": "Confirm is tapped through POST /confirm"}, status_code=400)
+        async with desk.lock:
+            if not await desk.tap(control):
+                return JSONResponse({"error": f"the card does not offer {control!r}"}, status_code=409)
+        return JSONResponse(desk.state())
 
     @api.post("/say")
-    def say() -> JSONResponse:
-        return JSONResponse({"error": "speech is not built yet (P1)"}, status_code=501)
+    async def say(request: Request) -> JSONResponse:
+        """What the user said (speech recognition on the page, or typed): a yes at the
+        Confirm gate, an answer to the card's question, Pay or Contest, a reason."""
+        text = (await _json(request)).get("text")
+        if not isinstance(text, str) or not text.strip():
+            raise HTTPException(400, "text is what the user said")
+        async with desk.lock:
+            try:
+                handled = await desk.say(text)
+            except CassetteMissing as err:
+                raise HTTPException(500, str(err)) from err
+        if not handled:
+            return JSONResponse({"error": "nothing on the card is waiting for that"}, status_code=409)
+        return JSONResponse(desk.state())
 
     if test_mode:
         assert isinstance(clock, VirtualClock) and texts is not None and sites is not None
@@ -130,8 +181,16 @@ def _test_router(clock: VirtualClock, desk: Desk, hands: Hands, texts: FakeTexts
 
     @t.post("/frame")
     async def test_frame(request: Request) -> dict[str, Any]:
-        desk.take_frame(_image(await request.body()), clock.now().isoformat())
-        return {"accepted": True, "at": desk.frame_at}
+        return await _frame(desk, await request.body(), clock.now())
+
+    @t.post("/eye")
+    async def eye_delay(request: Request) -> dict[str, float]:
+        """How long the eye takes to answer, in seconds of virtual time (the clock outline)."""
+        seconds = (await _json(request)).get("seconds")
+        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or not 0 <= seconds <= 3600:
+            raise HTTPException(400, "seconds is a number from 0 to 3600")
+        desk.eye_delay = float(seconds)
+        return {"seconds": desk.eye_delay}
 
     @t.post("/advance")
     async def advance(request: Request) -> dict[str, str]:
@@ -142,6 +201,8 @@ def _test_router(clock: VirtualClock, desk: Desk, hands: Hands, texts: FakeTexts
             clock.advance(seconds)
         except (ValueError, OverflowError) as err:
             raise HTTPException(400, str(err)) from err
+        async with desk.lock:
+            await desk.tick(clock.now())
         return {"now": clock.now().isoformat()}
 
     @t.get("/texts")

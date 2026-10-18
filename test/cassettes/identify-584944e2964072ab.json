@@ -1,0 +1,4 @@
+{
+  "request_hash": "584944e2964072abd958ae5eea76d9e5f2ff65aced4c8b0e1870e99d47c62203",
+  "response": "{\"kind\": \"ticket\", \"legible\": false, \"fields\": {\"city\": null, \"citation\": null, \"plate\": null, \"issued\": null, \"due\": null, \"amount\": null, \"violation\": null}, \"size_visible\": false, \"size_guess\": null}"
+}

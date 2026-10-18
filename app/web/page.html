@@ -29,20 +29,28 @@
 <script>
 // The desk's page: the webcam, the card as GET /desk holds it, and the
 // controls it offers. Frames go to POST /frame as JPEG; Confirm goes to
-// POST /confirm. (The eye, the chores and speech arrive in P1.)
+// POST /confirm (the gate's tap); Pay and Contest go to POST /tap; what the
+// user says or types goes to POST /say (a spoken "yes" is the gate's other way through).
 const card = document.getElementById('card');
 const controls = document.getElementById('controls');
 function render(desk) {
   card.textContent = '';
   const lines = [];
-  if (desk.identified) lines.push(JSON.stringify(desk.identified));
-  for (const key of ['question', 'done', 'failed_step', 'deadline', 'link']) if (desk[key]) lines.push(desk[key]);
+  if (desk.identified) {
+    const f = desk.identified.fields;
+    lines.push(desk.identified.kind + ': ' + Object.entries(f).filter(([, v]) => v).map(([k, v]) => k + ' ' + v).join(', '));
+  }
+  for (const key of ['notice', 'question', 'letter', 'done', 'failed_step']) if (desk[key]) lines.push(desk[key]);
+  if (desk.deadline) lines.push('Due ' + desk.deadline + (desk.deadline_note ? ' (' + desk.deadline_note + ')' : ''));
+  if (desk.link) lines.push(desk.link);
   for (const line of lines) { const p = document.createElement('p'); p.textContent = line; card.appendChild(p); }
   controls.textContent = '';
   for (const name of desk.controls) {
     const b = document.createElement('button');
     b.textContent = name;
-    if (name === 'Confirm') b.onclick = () => fetch('/confirm', { method: 'POST' });
+    b.onclick = name === 'Confirm'
+      ? () => fetch('/confirm', { method: 'POST' })
+      : () => fetch('/tap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ control: name }) });
     controls.appendChild(b);
   }
 }

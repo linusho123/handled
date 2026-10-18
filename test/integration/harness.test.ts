@@ -1,4 +1,5 @@
-import { readdirSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { App, IMAGES_DIR, SITES } from '../harness/app.ts'
 
@@ -23,9 +24,12 @@ describe('the app in test mode', () => {
       identified: null,
       done: null,
       deadline: null,
+      deadline_note: null,
       link: null,
       controls: [],
       question: null,
+      letter: null,
+      notice: null,
       failed_step: null,
     })
     expect(await app.texts()).toEqual([])
@@ -50,25 +54,47 @@ describe('the app in test mode', () => {
     expect((await app.request('POST', '/test/reset', { start: 'tomorrow' })).status).toBe(400)
   })
 
-  test('accepts the six fixture images and refuses what is not an image, identifying nothing yet', async () => {
+  test('accepts the fixture images and refuses what is not an image; an unreadable frame identifies nothing', async () => {
     await app.reset()
     const names = readdirSync(IMAGES_DIR).filter((f) => f.endsWith('.png')).sort()
-    expect(names).toEqual(['blank-sheet.png', 'cholula-32oz.png', 'la-ticket.png', 'ladwp-bill.png', 'mug.png', 'ticket-blurred.png'])
-    for (const name of names) await app.frame(name)
+    expect(names).toEqual([
+      'blank-sheet.png',
+      'cholula-32oz.png',
+      'cholula-size-hidden.png',
+      'la-ticket-4512087734-2026-10-12.png',
+      'la-ticket-4512087734-2026-10-31.png',
+      'la-ticket-4512087734-2026-12-20.png',
+      'la-ticket-4512087734-2028-02-10.png',
+      'la-ticket.png',
+      'ladwp-bill.png',
+      'mug.png',
+      'ticket-blurred.png',
+      'ticket-smeared.png',
+    ])
     expect((await app.request('POST', '/test/frame', new Uint8Array([1, 2, 3]), 'image/png')).status).toBe(400)
     expect((await app.request('POST', '/frame', new Uint8Array([1, 2, 3]), 'image/jpeg')).status).toBe(400)
-    // The eye is P1: a frame is held, never answered with an invented identification.
+    // A frame with no cassette fails loudly; it is never answered with an invented identification.
+    const fresh = new Uint8Array(readFileSync(join(IMAGES_DIR, 'mug.png')))
+    fresh[fresh.length - 1] = fresh[fresh.length - 1]! ^ 0xff
+    const missing = await app.request('POST', '/test/frame', fresh, 'image/png')
+    expect([missing.status, await missing.text()]).toEqual([500, expect.stringContaining('no cassette')])
+    await app.reset()
+    await app.frame('mug.png')
     expect((await app.desk()).identified).toBeNull()
     expect(await app.browser()).toEqual({ url: null, title: null, fields: {}, tabs: [] })
   })
 
   test('serves the page, and nothing waits for Confirm before a chore exists', async () => {
+    await app.reset()
     const page = await app.request('GET', '/')
     expect(page.status).toBe(200)
     expect(page.headers.get('content-type')).toMatch(/^text\/html/)
     expect(await page.text()).toContain('id="card"')
-    expect((await app.request('POST', '/confirm')).status).toBe(409)
-    expect((await app.request('POST', '/say', { text: 'yes' })).status).toBe(501)
+    expect((await app.confirm()).status).toBe(409)
+    expect((await app.say('yes')).status).toBe(409)
+    expect((await app.tap('Pay')).status).toBe(409)
+    expect((await app.tap('Confirm')).status).toBe(400)
+    expect((await app.request('POST', '/test/eye', { seconds: -1 })).status).toBe(400)
   })
 
   test('sets each site fault it knows and refuses any other', async () => {

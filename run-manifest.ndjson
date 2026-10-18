@@ -6,17 +6,17 @@
 {"file":"features/bill.feature","title":"The payment page is filled and paused before paying","status":"unbound"}
 {"file":"features/identify.feature","title":"A product with more than one size is asked about first","status":"unbound"}
 {"file":"features/identify.feature","title":"Correcting the size answers the question","status":"unbound"}
-{"file":"features/identify.feature","title":"Each kind is named within five seconds [1]","status":"unbound"}
-{"file":"features/identify.feature","title":"Each kind is named within five seconds [2]","status":"unbound"}
-{"file":"features/identify.feature","title":"Each kind is named within five seconds [3]","status":"unbound"}
-{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [1]","status":"unbound"}
-{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [2]","status":"unbound"}
-{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [3]","status":"unbound"}
-{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [4]","status":"unbound"}
-{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [1]","status":"unbound"}
-{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [2]","status":"unbound"}
-{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [3]","status":"unbound"}
-{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [4]","status":"unbound"}
+{"file":"features/identify.feature","title":"Each kind is named within five seconds [1]","status":"passed"}
+{"file":"features/identify.feature","title":"Each kind is named within five seconds [2]","status":"passed"}
+{"file":"features/identify.feature","title":"Each kind is named within five seconds [3]","status":"passed"}
+{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [1]","status":"passed"}
+{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [2]","status":"passed"}
+{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [3]","status":"passed"}
+{"file":"features/identify.feature","title":"The five-second clock decides between the card and Hold it closer [4]","status":"passed"}
+{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [1]","status":"passed"}
+{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [2]","status":"passed"}
+{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [3]","status":"passed"}
+{"file":"features/identify.feature","title":"What cannot be read gets \"Hold it closer\" and no chore [4]","status":"passed"}
 {"file":"features/product.feature","title":"A store without the product is listed as not found","status":"unbound"}
 {"file":"features/product.feature","title":"Buy goes to checkout with the Visa on file and pauses","status":"unbound"}
 {"file":"features/product.feature","title":"Confirm places the order and the card says so","status":"unbound"}
@@ -34,18 +34,18 @@
 {"file":"features/report.feature","title":"The day before a deadline brings a second text [1]","status":"unbound"}
 {"file":"features/report.feature","title":"The day before a deadline brings a second text [2]","status":"unbound"}
 {"file":"features/report.feature","title":"The day before a deadline brings a second text [3]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A step that fails submits nothing and leaves the page open [1]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A step that fails submits nothing and leaves the page open [2]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A step that fails submits nothing and leaves the page open [3]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [1]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [2]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [3]","status":"unbound"}
-{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [4]","status":"unbound"}
-{"file":"features/ticket.feature","title":"Confirm completes the step and the card says so","status":"unbound"}
-{"file":"features/ticket.feature","title":"Contest writes a letter from the spoken reason and pauses before submit","status":"unbound"}
-{"file":"features/ticket.feature","title":"Pay fills the card on file and pauses before submit","status":"unbound"}
-{"file":"features/ticket.feature","title":"Saying yes counts as Confirm","status":"unbound"}
-{"file":"features/ticket.feature","title":"The city's page is filled and the card offers Pay or Contest","status":"unbound"}
-{"file":"features/ticket.feature","title":"Walking away leaves the page paused forever [1]","status":"unbound"}
-{"file":"features/ticket.feature","title":"Walking away leaves the page paused forever [2]","status":"unbound"}
-{"file":"features/ticket.feature","title":"Walking away leaves the page paused forever [3]","status":"unbound"}
+{"file":"features/ticket.feature","title":"A step that fails submits nothing and leaves the page open [1]","status":"passed"}
+{"file":"features/ticket.feature","title":"A step that fails submits nothing and leaves the page open [2]","status":"passed"}
+{"file":"features/ticket.feature","title":"A step that fails submits nothing and leaves the page open [3]","status":"passed"}
+{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [1]","status":"passed"}
+{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [2]","status":"passed"}
+{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [3]","status":"passed"}
+{"file":"features/ticket.feature","title":"A ticket with no printed due date is due twenty-one days after issue [4]","status":"passed"}
+{"file":"features/ticket.feature","title":"Confirm completes the step and the card says so","status":"passed"}
+{"file":"features/ticket.feature","title":"Contest writes a letter from the spoken reason and pauses before submit","status":"passed"}
+{"file":"features/ticket.feature","title":"Pay fills the card on file and pauses before submit","status":"passed"}
+{"file":"features/ticket.feature","title":"Saying yes counts as Confirm","status":"passed"}
+{"file":"features/ticket.feature","title":"The city's page is filled and the card offers Pay or Contest","status":"passed"}
+{"file":"features/ticket.feature","title":"Walking away leaves the page paused forever [1]","status":"passed"}
+{"file":"features/ticket.feature","title":"Walking away leaves the page paused forever [2]","status":"passed"}
+{"file":"features/ticket.feature","title":"Walking away leaves the page paused forever [3]","status":"passed"}

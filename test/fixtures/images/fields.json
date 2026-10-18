@@ -42,5 +42,66 @@
     "kind": "unknown",
     "fields": {},
     "note": "a coffee mug with no label"
+  },
+  "ticket-smeared.png": {
+    "kind": "unknown",
+    "fields": {},
+    "note": "la-ticket moving so fast the frame is smeared: a long horizontal motion blur"
+  },
+  "cholula-size-hidden.png": {
+    "kind": "product",
+    "fields": {
+      "name": "Cholula Original hot sauce",
+      "size": null
+    },
+    "note": "the 32 oz bottle with its size line hidden by a hand; the frame does not settle the size"
+  },
+  "la-ticket-4512087734-2026-10-12.png": {
+    "kind": "ticket",
+    "fields": {
+      "city": "Los Angeles",
+      "citation": "4512087734",
+      "plate": "8ABC123",
+      "issued": "2026-10-12",
+      "due": null,
+      "amount": "73.00",
+      "violation": "Meter expired"
+    }
+  },
+  "la-ticket-4512087734-2026-10-31.png": {
+    "kind": "ticket",
+    "fields": {
+      "city": "Los Angeles",
+      "citation": "4512087734",
+      "plate": "8ABC123",
+      "issued": "2026-10-31",
+      "due": null,
+      "amount": "73.00",
+      "violation": "Meter expired"
+    }
+  },
+  "la-ticket-4512087734-2026-12-20.png": {
+    "kind": "ticket",
+    "fields": {
+      "city": "Los Angeles",
+      "citation": "4512087734",
+      "plate": "8ABC123",
+      "issued": "2026-12-20",
+      "due": null,
+      "amount": "73.00",
+      "violation": "Meter expired"
+    }
+  },
+  "la-ticket-4512087734-2028-02-10.png": {
+    "kind": "ticket",
+    "fields": {
+      "city": "Los Angeles",
+      "citation": "4512087734",
+      "plate": "8ABC123",
+      "issued": "2028-02-10",
+      "due": null,
+      "amount": "73.00",
+      "violation": "Meter expired"
+    }
   }
 }

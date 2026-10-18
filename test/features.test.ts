@@ -4,6 +4,8 @@ import { basename, join, resolve } from 'node:path'
 import { afterAll } from 'vitest'
 import { runFeatures, type Definer, type WipEntry } from 'gherkin-node-test/vitest'
 import { closeApp } from './harness/app.ts'
+import identify from './steps/identify.steps.ts'
+import ticket from './steps/ticket.steps.ts'
 
 // gherkin-node-test over features/. One definer per feature file joins here as
 // its phase binds it (test/steps/<feature>.steps.ts), driving the worker's one
@@ -18,17 +20,23 @@ const ROOT = resolve(import.meta.dirname, '..')
 const FEATURE_DIR = join(ROOT, 'features')
 
 // The wip register: features (or scenarios) not yet bound. It only shrinks.
-// P0 binds nothing: every feature file is registered here.
+// P1 bound ticket and identify, but for the two D8 scenarios, whose
+// identification steps are bound and whose store-search steps are P3's.
 const WIP: WipEntry[] = [
   'bill', // P4
-  'identify', // P1 (the D8 store steps P3)
+  {
+    feature: 'identify',
+    scenarios: ['A product with more than one size is asked about first', 'Correcting the size answers the question'], // P3: the D8 store steps
+  },
   'product', // P3
   'report', // P2
-  'ticket', // P1
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each feature's world type is its own
-const definers: Record<string, Definer<any>> = {}
+const definers: Record<string, Definer<any>> = {
+  identify,
+  ticket,
+}
 
 const all = readdirSync(FEATURE_DIR).filter((f) => f.endsWith('.feature')).map((f) => basename(f, '.feature'))
 const requested = (process.env.FEATURES ?? '')

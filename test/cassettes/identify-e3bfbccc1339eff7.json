@@ -1,0 +1,4 @@
+{
+  "request_hash": "e3bfbccc1339eff7600ba7e665fb3566d2838cd66ba2dbe891a5040da028e75e",
+  "response": "{\n  \"kind\": \"bill\",\n  \"legible\": true,\n  \"fields\": {\n    \"biller\": \"LADWP\",\n    \"account\": \"1234567890\",\n    \"amount\": \"148.22\",\n    \"due\": \"2026-11-05\",\n    \"phone\": \"1-800-342-5397\"\n  },\n  \"size_visible\": false,\n  \"size_guess\": null\n}"
+}

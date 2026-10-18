@@ -1,8 +1,10 @@
+import asyncio
 from datetime import datetime
 
 import pytest
 
 from app.desk import Card, Desk, FakeTexts, VirtualClock
+from app.eye import Identification
 
 
 def test_the_virtual_clock_moves_only_when_told():
@@ -15,13 +17,21 @@ def test_the_virtual_clock_moves_only_when_told():
         clock.advance(-1)
 
 
-def test_the_desk_starts_empty_and_a_frame_identifies_nothing():
-    desk = Desk()
-    empty = {"identified": None, "done": None, "deadline": None, "link": None, "controls": [], "question": None, "failed_step": None}
+class UnknownEye:
+    def identify(self, frame):
+        return Identification(kind="unknown")
+
+
+def test_the_desk_starts_empty_and_an_unreadable_frame_identifies_nothing():
+    desk = Desk(eye=UnknownEye())
+    empty = {
+        "identified": None, "done": None, "deadline": None, "deadline_note": None, "link": None, "controls": [],
+        "question": None, "letter": None, "notice": None, "failed_step": None,
+    }
     assert desk.state() == empty
-    desk.take_frame(b"\x89PNG", "2026-10-17T00:00:00")
+    asyncio.run(desk.take_frame(b"\x89PNG", "image/png", datetime(2026, 10, 17)))
     assert desk.state() == empty
-    assert not desk.waiting_for_confirm()
+    assert not desk.waiting_for_confirm
     desk.card.done = "something"
     desk.reset()
     assert desk.state() == Card().document() == empty

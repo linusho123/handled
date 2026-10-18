@@ -13,4 +13,8 @@ Stub (P0). The full README (install, keys, the demo script) is written in PS.
     npm run validate             # strict feature lint + strict docket lint
     python -m app --test         # the app in test mode (virtual clock, fixture sites, /test/*)
 
-Keys live in `.env` (git-ignored). Tests never read it and never leave loopback.
+Keys live in `.env` (git-ignored). Tests never read it and never leave loopback: the eye
+replays the Gemini answers recorded under `test/cassettes/`, and a request with no cassette
+fails loudly. A changed prompt or fixture image needs its cassette recorded once, live:
+
+    node --env-file=.env scripts/py.mjs scripts/record-cassettes.py   # prints model id, cassette names and sizes only

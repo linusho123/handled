@@ -36,3 +36,12 @@ def test_the_fields_match_the_scenarios():
     assert fields["cholula-32oz.png"]["fields"] == {"name": "Cholula Original hot sauce", "size": "32 oz"}
     for name in ("ticket-blurred.png", "blank-sheet.png", "mug.png"):
         assert fields[name]["kind"] == "unknown" and fields[name]["fields"] == {}
+
+
+def test_the_p1_fixtures_match_their_scenarios():
+    fields = json.loads((IMAGES / "fields.json").read_text())
+    assert fields["ticket-smeared.png"]["kind"] == "unknown" and fields["ticket-smeared.png"]["fields"] == {}
+    assert fields["cholula-size-hidden.png"]["fields"] == {"name": "Cholula Original hot sauce", "size": None}
+    for issued in ("2026-10-12", "2026-10-31", "2026-12-20", "2028-02-10"):
+        f = fields[f"la-ticket-4512087734-{issued}.png"]["fields"]
+        assert (f["citation"], f["plate"], f["issued"], f["due"], f["amount"]) == ("4512087734", "8ABC123", issued, None, "73.00")
