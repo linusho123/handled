@@ -1,0 +1,31 @@
+{
+  "name": "handled",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node scripts/lane.mjs full",
+    "test:fast": "node scripts/lane.mjs fast",
+    "typecheck": "tsc -p tsconfig.json --noEmit --incremental",
+    "lint": "oxlint --deny-warnings",
+    "lint:features": "node scripts/lint-features.mjs",
+    "pytest": "node scripts/py.mjs -m pytest -q",
+    "validate": "npm run --silent lint:features && npm run --silent docket:strict",
+    "docket": "docketry lint features/DOCKET.md --corpus features",
+    "docket:strict": "docketry lint features/DOCKET.md --corpus features --strict",
+    "manifest": "HANDLED_MANIFEST=1 vitest run --project features && git add run-manifest.ndjson",
+    "app": "node scripts/py.mjs -m app",
+    "fixtures": "node scripts/py.mjs test/fixtures/make-images.py test/fixtures/images",
+    "setup:py": "uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r pyproject.toml --extra dev && .venv/bin/python -m playwright install chromium"
+  },
+  "devDependencies": {
+    "@bingh/docketry": "0.1.0",
+    "@types/node": "^24.19.2",
+    "gherkin-node-test": "0.11.0",
+    "oxlint": "^1.88.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

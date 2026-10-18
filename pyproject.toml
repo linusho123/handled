@@ -1,0 +1,32 @@
+[project]
+name = "handled"
+version = "0.0.0"
+description = "Handled: a thing held up to the webcam becomes a finished online chore, paused at Confirm (the eye, the hands and the desk in one Python process)."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn",
+  "playwright",
+  "google-genai",
+  "browser-use",
+  "pydantic-settings",
+  "pillow",
+  "python-multipart",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "httpx"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app", "app.eye", "app.hands", "app.desk", "app.web"]
+
+[tool.pytest.ini_options]
+# Python unit tests; run by both lanes (`npm run pytest`). conftest.py there
+# refuses any socket that is not loopback.
+testpaths = ["test/py"]
+pythonpath = [".", "test/sites", "test/fixtures"]
+addopts = "-p no:cacheprovider"
