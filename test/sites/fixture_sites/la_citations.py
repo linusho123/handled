@@ -29,6 +29,13 @@ CITATIONS: dict[str, dict[str, str]] = {
 }
 
 TITLE = "City of Los Angeles - Parking Citations"
+# The demo's browser reads like the real Parking Violations Bureau page (styled after it, 2026-10-18).
+BRAND = "Parking Violations Bureau <small>City of Los Angeles &middot; Moving Los Angeles Forward</small>"
+BRAND_COLOR = "#0b3d91"
+
+
+def city_page(title: str, body: str, status: int = 200) -> HTMLResponse:
+    return page(title, body, status, brand=BRAND, color=BRAND_COLOR)
 
 
 class CitySite(Site):
@@ -56,7 +63,7 @@ class CitySite(Site):
 
     def _lookup_form(self, message: str = "", status: int = 200, citation: str = "", plate: str = "") -> HTMLResponse:
         note = f"<p class='error' role='alert'>{esc(message)}</p>" if message else ""
-        return page(f"{TITLE} - Look up a citation", note + self._form(citation, plate), status)
+        return city_page(f"{TITLE} - Look up a citation", note + self._form(citation, plate), status)
 
     def router(self) -> APIRouter:
         r = APIRouter()
@@ -73,13 +80,13 @@ class CitySite(Site):
             if record is None:
                 return self._lookup_form(f"Citation {citation} was not found", status=404, citation=citation, plate=plate)
             c = esc(citation.strip())
-            return page(
+            return city_page(
                 f"{TITLE} - Citation {citation.strip()}",
                 self._form(citation, plate) + f"<dl><dt>Citation</dt><dd id='citation-number'>{c}</dd>"
                 f"<dt>Plate</dt><dd id='plate-number'>{esc(record['plate'])}</dd>"
                 f"<dt>Amount due</dt><dd id='amount'>${esc(record['amount'])}</dd></dl>"
-                f"<a id='pay' href='/sites/la-citations/pay?citation={c}'>Pay</a> "
-                f"<a id='contest' href='/sites/la-citations/contest?citation={c}'>Contest</a>",
+                f"<a class='button' id='pay' href='/sites/la-citations/pay?citation={c}'>Pay</a> "
+                f"<a class='button' id='contest' href='/sites/la-citations/contest?citation={c}'>Contest</a>",
             )
 
         @r.get("/pay")
@@ -90,7 +97,7 @@ class CitySite(Site):
             if record is None:
                 return self._lookup_form(f"Citation {citation} was not found", status=404)
             c = esc(citation.strip())
-            return page(
+            return city_page(
                 f"{TITLE} - Pay citation {citation.strip()}",
                 "<form method='post' action='/sites/la-citations/pay'>"
                 f"<input type='hidden' name='citation' value='{c}'>"
@@ -117,9 +124,9 @@ class CitySite(Site):
             if record is None:
                 return self._lookup_form(f"Citation {citation} was not found", status=404)
             if not (last4(card_number) and card_expiry.strip() and card_cvc.strip()):
-                return page(f"{TITLE} - Payment declined", "<p role='alert'>Card details are incomplete.</p>", 400)
+                return city_page(f"{TITLE} - Payment declined", "<p role='alert'>Card details are incomplete.</p>", 400)
             self.record({"kind": "payment", "citation": citation.strip(), "amount": record["amount"], "card_last4": last4(card_number), "card_name": card_name.strip()})
-            return page(f"{TITLE} - Payment received", f"<p id='receipt'>Citation {esc(citation.strip())} paid, ${esc(record['amount'])}.</p>")
+            return city_page(f"{TITLE} - Payment received", f"<p id='receipt'>Citation {esc(citation.strip())} paid, ${esc(record['amount'])}.</p>")
 
         @r.get("/contest")
         def contest_form(request: Request, citation: str = "") -> Response:
@@ -128,7 +135,7 @@ class CitySite(Site):
             if self._find(citation) is None:
                 return self._lookup_form(f"Citation {citation} was not found", status=404)
             c = esc(citation.strip())
-            return page(
+            return city_page(
                 f"{TITLE} - Contest citation {citation.strip()}",
                 "<form method='post' action='/sites/la-citations/contest'>"
                 f"<input type='hidden' name='citation' value='{c}'>"
@@ -143,9 +150,9 @@ class CitySite(Site):
             if self._find(citation) is None:
                 return self._lookup_form(f"Citation {citation} was not found", status=404)
             if not letter.strip():
-                return page(f"{TITLE} - Contest incomplete", "<p role='alert'>A statement is required.</p>", 400)
+                return city_page(f"{TITLE} - Contest incomplete", "<p role='alert'>A statement is required.</p>", 400)
             self.record({"kind": "contest", "citation": citation.strip(), "letter": letter.strip()})
-            return page(f"{TITLE} - Contest received", f"<p id='receipt'>Contest filed for citation {esc(citation.strip())}.</p>")
+            return city_page(f"{TITLE} - Contest received", f"<p id='receipt'>Contest filed for citation {esc(citation.strip())}.</p>")
 
         @r.get("/login")
         def login(request: Request) -> Response:
