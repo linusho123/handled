@@ -1,0 +1,46 @@
+{
+  "la-ticket.png": {
+    "kind": "ticket",
+    "fields": {
+      "city": "Los Angeles",
+      "citation": "4512087733",
+      "plate": "8ABC123",
+      "issued": "2026-10-12",
+      "due": "2026-11-02",
+      "amount": "73.00",
+      "violation": "Meter expired"
+    }
+  },
+  "ladwp-bill.png": {
+    "kind": "bill",
+    "fields": {
+      "biller": "LADWP",
+      "account": "1234567890",
+      "amount": "148.22",
+      "due": "2026-11-05",
+      "phone": "1-800-342-5397"
+    }
+  },
+  "cholula-32oz.png": {
+    "kind": "product",
+    "fields": {
+      "name": "Cholula Original hot sauce",
+      "size": "32 oz"
+    }
+  },
+  "ticket-blurred.png": {
+    "kind": "unknown",
+    "fields": {},
+    "note": "la-ticket at arm's length: shrunk and blurred until the digits cannot be read"
+  },
+  "blank-sheet.png": {
+    "kind": "unknown",
+    "fields": {},
+    "note": "a blank sheet of paper"
+  },
+  "mug.png": {
+    "kind": "unknown",
+    "fields": {},
+    "note": "a coffee mug with no label"
+  }
+}

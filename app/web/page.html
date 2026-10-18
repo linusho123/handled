@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handled</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; background: #fafafa; color: #111; }
+  main { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  @media (max-width: 700px) { main { grid-template-columns: 1fr; } }
+  video { width: 100%; background: #000; border-radius: 8px; }
+  #card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; min-height: 8em; }
+  #card:empty::before { content: "Hold something up to the webcam."; color: #777; }
+  button { font-size: 1rem; padding: 8px 16px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <video id="webcam" autoplay muted playsinline></video>
+    <canvas id="grab" hidden></canvas>
+  </section>
+  <section>
+    <div id="card" aria-live="polite"></div>
+    <div id="controls"></div>
+    <form id="say"><input id="say-text" name="text" placeholder="Say or type…" autocomplete="off"> <button type="submit">Send</button></form>
+  </section>
+</main>
+<script>
+// The desk's page: the webcam, the card as GET /desk holds it, and the
+// controls it offers. Frames go to POST /frame as JPEG; Confirm goes to
+// POST /confirm. (The eye, the chores and speech arrive in P1.)
+const card = document.getElementById('card');
+const controls = document.getElementById('controls');
+function render(desk) {
+  card.textContent = '';
+  const lines = [];
+  if (desk.identified) lines.push(JSON.stringify(desk.identified));
+  for (const key of ['question', 'done', 'failed_step', 'deadline', 'link']) if (desk[key]) lines.push(desk[key]);
+  for (const line of lines) { const p = document.createElement('p'); p.textContent = line; card.appendChild(p); }
+  controls.textContent = '';
+  for (const name of desk.controls) {
+    const b = document.createElement('button');
+    b.textContent = name;
+    if (name === 'Confirm') b.onclick = () => fetch('/confirm', { method: 'POST' });
+    controls.appendChild(b);
+  }
+}
+async function poll() {
+  try { render(await (await fetch('/desk')).json()); } catch (e) { /* the server is restarting */ }
+}
+setInterval(poll, 500); poll();
+const video = document.getElementById('webcam');
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+    video.srcObject = stream;
+    const canvas = document.getElementById('grab');
+    setInterval(() => {
+      if (!video.videoWidth) return;
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.toBlob((blob) => blob && fetch('/frame', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob }), 'image/jpeg', 0.85);
+    }, 1000);
+  }).catch(() => {});
+}
+document.getElementById('say').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('say-text');
+  fetch('/say', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: input.value }) });
+  input.value = '';
+});
+</script>
+</body>
+</html>
