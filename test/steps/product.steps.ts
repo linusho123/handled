@@ -30,8 +30,13 @@ import {
   productChoreBegins,
   site,
   storeLedgers,
-  type StoreWorld as World,
+  type StoreWorld,
 } from './stores.ts'
+
+type World = StoreWorld & {
+  /** The store the scenario made cheapest ("Walmart"); its price is in prices. */
+  cheapest?: 'Target' | 'Walmart' | 'Amazon'
+}
 
 const list = (names: string) => names.split(/\s*,\s*/)
 
@@ -54,6 +59,7 @@ async function expectNoOrders(w: World): Promise<void> {
 /** Target $9.49, Walmart at the price given, Amazon $10.99: the D16 outline's first row. */
 async function walmartCheapest(w: World, price: string): Promise<void> {
   expect(Number(price)).toBeLessThan(9.49)
+  w.cheapest = 'Walmart'
   await lists(w, 'Target', '9.49')
   await lists(w, 'Walmart', price)
   await lists(w, 'Amazon', '10.99')
@@ -158,9 +164,10 @@ const product: Definer<World> = (reg) => {
   })
 
   reg.define(/^the user sees the Confirm control on the card$/, async (w) => {
+    // The store and price the scenario set (the Given), never the app's own ranking.
+    const store = required(w.cheapest, 'cheapest')
+    await expectConfirmOnly(w, store, required(required(w.prices, 'prices')[store], `price at ${store}`))
     const desk = await required(w.app, 'app').desk()
-    const bought = desk.ranking[0]!
-    await expectConfirmOnly(w, bought.store, bought.price.slice(1))
     const view = await required(w.app, 'app').browser()
     expect(desk.link).toBe(view.url)
   })

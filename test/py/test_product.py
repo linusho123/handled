@@ -122,3 +122,32 @@ def test_a_store_that_does_not_answer_is_not_found():
         assert desk.card.not_found == ["Target", "Walmart"]
 
     _run(body)
+
+
+def test_head_1_the_ranking_compares_the_cents_not_only_the_dollars():
+    """head-1: prices that differ only in cents rank by the cents (D16), and Buy lands on the cheapest."""
+
+    async def body(chore, desk, sites, hands):
+        sites["target"].set_prices({SLUG: "8.98"})
+        sites["walmart"].set_prices({SLUG: "8.49"})
+        sites["amazon"].set_prices({SLUG: "8.99"})
+        await chore.begin()
+        assert [(r["store"], r["price"]) for r in desk.card.ranking] == [("Walmart", "$8.49"), ("Target", "$8.98"), ("Amazon", "$8.99")]
+        assert desk.card.not_found == [] and desk.card.buy == "Walmart" and desk.card.controls == ["Buy"]
+
+    _run(body)
+
+
+def test_head_2_a_tie_keeps_store_order_not_alphabetical_order():
+    """head-2: Walmart and Amazon tie as the cheapest; store order (Target, Walmart, Amazon) puts
+    Walmart first, where alphabetical order would put Amazon first."""
+
+    async def body(chore, desk, sites, hands):
+        sites["target"].set_prices({SLUG: "9.49"})
+        sites["walmart"].set_prices({SLUG: "8.98"})
+        sites["amazon"].set_prices({SLUG: "8.98"})
+        await chore.begin()
+        assert [(r["store"], r["price"]) for r in desk.card.ranking] == [("Walmart", "$8.98"), ("Amazon", "$8.98"), ("Target", "$9.49")]
+        assert desk.card.not_found == [] and desk.card.buy == "Walmart" and desk.card.controls == ["Buy"]
+
+    _run(body)
