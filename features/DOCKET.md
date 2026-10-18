@@ -307,3 +307,11 @@ D38 2026-10-18 [V]
   -> fence-deferred live-stores
   serves: N1
   touches: D16 D18
+
+# After the bill phase, 2026-10-18 (~07:40 PDT): the Browser Use finder for an unknown biller was built against the fixture biller but its cassette could not be recorded, because the key's daily quota for the recording model was spent; under the operator's thirty-minute rule it was left out.
+
+D39 2026-10-18 [V]
+  resp: the Browser Use finder for a biller or a city the site map does not know is deferred; an unknown biller is `call to pay` with the number printed on the bill, and an unknown city stops as D10 rules; reopens when a cassette can be recorded, after the deadline [V]
+  -> fence-deferred browser-use-finder
+  serves: N1
+  touches: D14 D15 D27

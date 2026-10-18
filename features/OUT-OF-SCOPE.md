@@ -11,6 +11,7 @@ The fence for Handled, scoped 2026-10-17 late evening (docket dates are UTC, 202
 ## Deferred — each with its reopening condition
 
 - **The real Los Angeles pages after the CAPTCHA.** No real citation number was in hand at the event, so the pages past the lookup are unconfirmed; the demo shows the real lookup page up to its CAPTCHA and runs Pay and Contest against the fixture city site styled after the real one, declared as such. Reopens when a real citation is in hand. (D37, 2026-10-18)
+- **The Browser Use finder.** Finding a payment page for a biller, or a citation page for a city, the site map does not know. Built against the fixture biller, but its cassette could not be recorded on the day (the key's daily quota for the recording model was spent), so under the thirty-minute rule it is out: an unknown biller is "call to pay" with the number printed on the bill, an unknown city stops as a failed step. Reopens when a cassette can be recorded. (D39, 2026-10-18)
 - **Live store search.** Target and Walmart refuse automated browsers; the product demo runs against the three fixture stores styled after them, declared as fixtures. Reopens if a store offers a product API or stops blocking. (D38, 2026-10-18)
 - **Tickets from cities other than Los Angeles.** Best effort: the agent searches for that city's pay-or-contest page and proceeds if it finds one, else stops as a failed step. The demo uses a Los Angeles ticket. Reopens if a judge brings a ticket from another city. (D27, 2026-10-18)
 
