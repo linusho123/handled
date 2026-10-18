@@ -222,6 +222,13 @@ class Desk:
             return await self._answer_variant(text)
         if self.chore is not None:
             return await self.chore.say(text)
+        if self.live and self.identification is None and text.strip():
+            # Live mode, for reach and robustness: a product typed instead of held up. The typed
+            # words are the product's name; the chore then runs exactly as after the camera.
+            self._attempt = None
+            self.card.notice = None
+            await self._identified(Identification(kind="product", fields={"name": text.strip(), "brand": None, "size": None}, confidence=1.0))
+            return True
         return False
 
     async def _answer_variant(self, text: str) -> bool:

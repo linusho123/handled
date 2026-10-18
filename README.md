@@ -62,7 +62,9 @@ fixture stores list whatever the camera names, at a stable made-up price per sto
    card and in the city's form; Confirm shows; your phone gets a text. Nobody taps Confirm.
 3. Tap **Start over**. Hold up the product. Three tabs open; the card ranks the stores with
    Buy on the cheapest. Tap Buy: checkout, paused at Confirm.
-4. Tap **Next** or **Start over** for the next thing. A chore that has ended ignores the camera
+4. No camera, or a product the eye cannot name? Type it in the say box while nothing is identified
+   (`JBL Clip 4`) and the stores are searched for those words.
+5. Tap **Next** or **Start over** for the next thing. A chore that has ended ignores the camera
    until you do, so one thing means one chore and one text.
 
 Against the real sites (`npm run app` with no `HANDLED_SITES`), the ticket chore opens the real

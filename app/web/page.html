@@ -170,7 +170,8 @@ function sayForm() {
   const form = el('form', 'say'); form.id = 'say';
   const input = el('input'); input.id = 'say-text'; input.name = 'text'; input.autocomplete = 'off';
   const pending = window.__desk && window.__desk.question;
-  input.placeholder = pending ? 'Your reason, for example: the meter was broken and I had paid' : 'Say or type: "pay", "contest, the meter was broken", "yes"…';
+  const idle = !(window.__desk && window.__desk.identified);
+  input.placeholder = pending ? 'Your reason, for example: the meter was broken and I had paid' : idle ? 'Or type a product to search the stores, e.g. JBL Clip 4' : 'Say or type: "pay", "contest, the meter was broken", "yes"…';
   const send = el('button', 'primary', 'Send'); send.type = 'submit';
   form.appendChild(input); form.appendChild(send);
   form.addEventListener('submit', (e) => { e.preventDefault(); if (!input.value.trim()) return; post('/say', { text: input.value }); input.value = ''; });
