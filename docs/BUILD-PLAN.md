@@ -83,7 +83,7 @@ Cumulative ≈ 9.5 hours against ~12 remaining at the time of writing. If PD sli
 
 ## P2 — The report
 
-**Builds.** `report()` at every chore end (confirmed, paused, failed): the card's `identified`, `done`, `deadline`, `link`; one text through `Texts`; `Deadlines` for tickets and bills; the day-before scheduler on the clock at 09:00 local; no second text for products.
+**Builds.** `report()` at every chore end (confirmed, paused, failed): the card's `identified`, `done`, `deadline`, `link`; one text through `Texts`; `Deadlines` for tickets and bills; the day-before scheduler on the clock at 09:00 local; no second text for products. Also the **live mode** PD needs (added 2026-10-18 after P1, the operator's amendment): `npm run app` without `--test` runs the real clock, live Gemini through the same client with `HANDLED_RECORD` off and no cassette required, headed Chromium, `HANDLED_SITES=real` reading the real URLs and selectors from the `SiteMap`, the webcam page posting frames to `POST /frame`, and the real `Texts` sender chosen by the keys present (Photon with the handshake conversation, else Twilio, else a logged fake). Live mode is exercised by hand in PD, not by scenarios; the fast lane stays cassette-only.
 **Binds.** `report.feature` (every scenario).
 **Second reviewer's focus.** Clock honesty: every assertion on virtual time; a probe that schedules the second text at the deadline instead of the day before must flip the D20 outline; a probe that schedules one for products must turn the D21 scenario red.
 **Gate.** as P1 with its file.

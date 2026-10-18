@@ -52,3 +52,4 @@ When the build runs short: the bill chore first, then the Buy step in favour of 
 - 2026-10-18 — signed at D35 after ratifications D30–D34 (N2, N3, D20, D28, D29). No `ruled` line changed.
 - 2026-10-18 — Photon's first-message constraint recorded under the texts `chosen` line after reading its beta docs; the build plan's PD section carries the setup steps. No `ruled` line changed.
 - 2026-10-18 — Browser Use deferred to the bill chore phase at the operator's word (not until necessary); the ticket and product chores run on scripted Playwright flows alone. No `ruled` line changed.
+- 2026-10-18 — live mode (real clock, live Gemini, headed Chromium, real sites, real texts) assigned to P2 in the build plan so the demo integration phase has something to run; a build-plan scheduling change, no `ruled` or `chosen` line changed.
