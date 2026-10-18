@@ -132,7 +132,13 @@ function render(desk) {
     dl.appendChild(el('dt', null, LABELS[k] || k)); dl.appendChild(el('dd', null, k === 'amount' ? '$' + String(v).replace(/^\$/, '') : String(v)));
   }
   if (dl.childElementCount) card.appendChild(dl);
-  if (desk.question) card.appendChild(el('div', 'status wait', desk.question));
+  if (desk.question) {
+    card.appendChild(el('div', 'status wait', desk.question));
+    const answer = el('div', 'controls');
+    const yes = el('button', 'primary', 'Yes'); yes.onclick = () => post('/say', { text: 'yes' });
+    const no = el('button', '', 'No, it is…'); no.onclick = () => { const i = document.getElementById('say-text'); if (i) { i.placeholder = 'Type the right size, e.g. 12 oz'; i.focus(); } };
+    answer.appendChild(yes); answer.appendChild(no); card.appendChild(answer);
+  }
   if (desk.notice) card.appendChild(el('div', 'status warn', desk.notice));
   const stopped = !!(desk.failed_step && desk.done && desk.done.startsWith(desk.failed_step));
   if (desk.failed_step && !stopped) card.appendChild(el('div', 'status bad', desk.failed_step));
