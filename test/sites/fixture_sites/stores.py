@@ -73,8 +73,8 @@ class StoreSite(Site):
             return None
         slug = "-".join(re.sub(r"[^a-z0-9]", "", w) for w in words)[:60].strip("-") or "item"
         if slug not in self.extra:
-            base = 2 + int(hashlib.md5(slug.encode()).hexdigest(), 16) % 4000 / 100
-            offset = int(hashlib.md5(f"{slug}:{self.name}".encode()).hexdigest(), 16) % 400 / 100
+            base = 3 + int(hashlib.md5(slug.encode()).hexdigest(), 16) % 1500 / 100  # $3.00 to $17.99
+            offset = int(hashlib.md5(f"{slug}:{self.name}".encode()).hexdigest(), 16) % 300 / 100  # the store's own $0 to $2.99
             self.extra[slug] = query.strip()
             self.prices[slug] = _money(base + offset)
         return slug, self.extra[slug], self.prices[slug]
@@ -200,7 +200,7 @@ class StoreSite(Site):
             listed = {s: self._listed(s) for s in self.cart}
             if any(price is None for price in listed.values()):
                 return page(f"{self.title} - Checkout", "<p role='alert'>An item in your cart is no longer available.</p>", 400)
-            items = [{"slug": s, "name": CATALOG[s], "price": listed[s]} for s in self.cart]
+            items = [{"slug": s, "name": self._name(s), "price": listed[s]} for s in self.cart]
             total = _money(sum(Decimal(i["price"]) for i in items))
             self.record({"kind": "order", "items": items, "total": total, "ship_to": {k: v.strip() for k, v in ship.items()}, "card_last4": last4(card_number)})
             self.cart = []

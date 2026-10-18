@@ -113,6 +113,7 @@ function state(desk) {
 }
 
 function render(desk) {
+  window.__desk = desk;
   const [s, label] = state(desk);
   pill.dataset.state = s; pill.textContent = label;
   hint.textContent = desk.identified ? 'Tap Next or Start over to hold up the next thing' : (desk.notice || 'Hold a ticket, a bill or a product up to the camera');
@@ -160,12 +161,14 @@ function render(desk) {
   over.onclick = () => post('/start-over'); controls.appendChild(over);
   card.appendChild(controls);
   card.appendChild(sayForm());
+  if (desk.question) { const i = document.getElementById('say-text'); if (i && document.activeElement !== i) i.focus(); }
 }
 
 function sayForm() {
   const form = el('form', 'say'); form.id = 'say';
   const input = el('input'); input.id = 'say-text'; input.name = 'text'; input.autocomplete = 'off';
-  input.placeholder = 'Say or type: "pay", "contest, the meter was broken", "yes"…';
+  const pending = window.__desk && window.__desk.question;
+  input.placeholder = pending ? 'Your reason, for example: the meter was broken and I had paid' : 'Say or type: "pay", "contest, the meter was broken", "yes"…';
   const send = el('button', 'primary', 'Send'); send.type = 'submit';
   form.appendChild(input); form.appendChild(send);
   form.addEventListener('submit', (e) => { e.preventDefault(); if (!input.value.trim()) return; post('/say', { text: input.value }); input.value = ''; });
