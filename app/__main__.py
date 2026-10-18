@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
             ("amazon", {"cholula-original-32oz": "10.99", "cholula-original-12oz": "4.99"}),
         ):
             sites[store].set_prices(prices)
+            sites[store].open_catalog = True  # the demo: whatever the eye names is listed, at a made-up price
     texts = texts_from_env(os.environ)
     texts.prepare()  # names the senders configured; Photon looks for the user's first message
     api = create_app(

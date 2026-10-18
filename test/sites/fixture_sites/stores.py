@@ -15,6 +15,9 @@ Faults: `nolisting` (the store lists nothing, whatever its prices), `down`
 
 from __future__ import annotations
 
+import hashlib
+import re
+
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -49,11 +52,32 @@ class StoreSite(Site):
         self.title = title
         self.prices: dict[str, str] = {}
         self.cart: list[str] = []
+        # Live demo only (never in tests): a store lists anything searched for, at a stable made-up
+        # price per store, so whatever the eye names ranks across the three stores (D38's fixtures).
+        self.open_catalog = False
+        self.extra: dict[str, str] = {}  # the listings an open catalog made up, slug to name
 
     def reset(self) -> None:
         super().reset()
         self.prices = {}
         self.cart = []
+        self.extra = {}
+
+    def _name(self, slug: str) -> str:
+        return CATALOG.get(slug) or self.extra.get(slug) or slug
+
+    def _make_up(self, words: list[str], query: str) -> tuple[str, str, str] | None:
+        """An open catalog's listing for a query nobody stocked: a slug from the words, the query
+        as the name, a price from a hash of the slug (the same every time) plus a store offset."""
+        if not self.open_catalog or not words or self.fault == "nolisting":
+            return None
+        slug = "-".join(re.sub(r"[^a-z0-9]", "", w) for w in words)[:60].strip("-") or "item"
+        if slug not in self.extra:
+            base = 2 + int(hashlib.md5(slug.encode()).hexdigest(), 16) % 4000 / 100
+            offset = int(hashlib.md5(f"{slug}:{self.name}".encode()).hexdigest(), 16) % 400 / 100
+            self.extra[slug] = query.strip()
+            self.prices[slug] = _money(base + offset)
+        return slug, self.extra[slug], self.prices[slug]
 
     def set_prices(self, prices: dict[str, Any]) -> None:
         unknown = [slug for slug in prices if slug not in CATALOG]
@@ -90,9 +114,11 @@ class StoreSite(Site):
             words = [w for w in q.lower().replace(",", " ").split() if w]
             hits = [
                 (slug, name, price)
-                for slug, name in CATALOG.items()
+                for slug, name in {**CATALOG, **self.extra}.items()
                 if words and all(w in name.lower() for w in words) and (price := self._listed(slug)) is not None
             ]
+            if not hits and (made := self._make_up(words, q)) is not None:
+                hits = [made]
             items = "".join(
                 f"<li class='result'><a href='{base}/product/{slug}'>{esc(name)}</a> <span class='price'>${price}</span></li>"
                 for slug, name, price in hits
@@ -108,8 +134,8 @@ class StoreSite(Site):
             if price is None:
                 return page(f"{self.title} - Not found", "<p>This item is not available.</p>", 404)
             return page(
-                f"{self.title} - {CATALOG[slug]}",
-                f"<p id='name'>{esc(CATALOG[slug])}</p><p><span id='price' class='price' data-price='{price}'>${price}</span></p>"
+                f"{self.title} - {self._name(slug)}",
+                f"<p id='name'>{esc(self._name(slug))}</p><p><span id='price' class='price' data-price='{price}'>${price}</span></p>"
                 f"<form method='post' action='{base}/cart'><input type='hidden' name='slug' value='{esc(slug)}'>"
                 "<button type='submit' id='add-to-cart'>Add to cart</button></form>",
             )
@@ -127,7 +153,7 @@ class StoreSite(Site):
         def cart(request: Request) -> Response:
             if blocked := self.fault_response(request):
                 return blocked
-            items = "".join(f"<li class='cart-item' data-slug='{esc(s)}'>{esc(CATALOG[s])}</li>" for s in self.cart)
+            items = "".join(f"<li class='cart-item' data-slug='{esc(s)}'>{esc(self._name(s))}</li>" for s in self.cart)
             checkout = f"<a id='checkout' href='{base}/checkout'>Check out</a>" if self.cart else ""
             return page(f"{self.title} - Cart", f"<ul id='cart'>{items}</ul>{checkout}")
 
@@ -135,7 +161,7 @@ class StoreSite(Site):
         def checkout(request: Request) -> Response:
             if blocked := self.fault_response(request):
                 return blocked
-            items = "".join(f"<li class='cart-item' data-slug='{esc(s)}'>{esc(CATALOG[s])}</li>" for s in self.cart)
+            items = "".join(f"<li class='cart-item' data-slug='{esc(s)}'>{esc(self._name(s))}</li>" for s in self.cart)
             return page(
                 f"{self.title} - Checkout",
                 f"<ul id='cart'>{items}</ul><form method='post' action='{base}/order'>"
